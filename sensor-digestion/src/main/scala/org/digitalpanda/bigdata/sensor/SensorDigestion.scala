@@ -17,10 +17,13 @@ import org.joda.time.format.DateTimeFormat
 import com.datastax.spark.connector._
 import org.apache.spark.sql.cassandra._
 
-object SensorDigestion extends App {
+object SensorDigestion {
 
 
-  aggregateHistory("01/07/2019 00:00:00","01/07/2019 00:10:00")
+  /** Main function */
+  def main(args: Array[String]): Unit = {
+    aggregateHistory("01/07/2019 00:00:00","01/07/2019 00:10:00")
+  }
 
 
   @transient lazy val conf: SparkConf = loadSparkConf()
@@ -37,10 +40,8 @@ object SensorDigestion extends App {
     val endDate = parseDate(end)
     println(s"Aggregate the history of interval [$startDate to $endDate[")
 
-    /* TODO: Uncomment to get full list
     val locatedMeasures = loadLocatedMeasures()
     println(s"Located measures to aggregate: $locatedMeasures")
-    */
 
     //val lines = session.read.textFile("src/main/resources/sensor_measure_history_seconds.csv")
     //https://github.com/datastax/spark-cassandra-connector/blob/master/doc/14_data_frames.md
@@ -60,7 +61,7 @@ object SensorDigestion extends App {
      AND timestamp >= '2019-07-01T00:00:00.000+02:00' AND timestamp < '2019-07-01T00:10:00.000+02:00' limit 1;
     */
 
-    for ((location, measureType) <- Seq(("server-room", TEMPERATURE))) {
+    for ((location, measureType) <- locatedMeasures){//Seq(("server-room", TEMPERATURE))) {
         import spark.implicits._
         val startBlockId = getHistoricalMeasureBlockId(startDate.getMillis, SECOND_PRECISION_RAW)
         val endBlockId = getHistoricalMeasureBlockId(endDate.getMillis, SECOND_PRECISION_RAW)
