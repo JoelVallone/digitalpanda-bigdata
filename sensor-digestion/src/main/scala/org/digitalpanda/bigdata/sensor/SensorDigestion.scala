@@ -23,18 +23,18 @@ object SensorDigestion {
     val begin = "01/07/2019 00:00:00"
     val end = "01/07/2019 00:10:00"
 
-    val sparkConf = loadSparkConf()
-    val spark = SparkSession.builder().config(sparkConf).getOrCreate()
+    val conf = SensorDigestion.loadSparkConf()
+    val spark = SparkSession.builder().config(conf).getOrCreate()
     val digestion =  new SensorDigestion(spark)
 
-    val locatedMeasures = Set(("server-room", TEMPERATURE))//digestion.loadLocatedMeasures()
+    val locatedMeasures =  Set(("server-room", TEMPERATURE)) //digestion.loadLocatedMeasures() //
 
     println(
       s"Aggregate the history for: \n" +
       s" - interval [$begin to $end[ \n" +
       s" - located measures $locatedMeasures")
 
-    digestion.aggregateHistory(begin, end, locatedMeasures)
+    //digestion.aggregateHistory(begin, end, locatedMeasures)
   }
 
   def loadSparkConf(): SparkConf = {
@@ -60,9 +60,14 @@ object SensorDigestion {
 
   def parseDate(date: String): DateTime =
     DateTimeFormat.forPattern("dd/MM/yyyy HH:mm:ss").parseDateTime(date)
+
+  def toCqlTimestamp(date: DateTime) : String =
+    DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSSZZ").print(date)
+
 }
 
 class SensorDigestion(spark: SparkSession){
+
   import SensorDigestion._
 
   def aggregateHistory(begin: String, end: String, locatedMeasures: Set[(Location, SensorMeasureType)]): Unit = {
@@ -77,28 +82,26 @@ class SensorDigestion(spark: SparkSession){
       val endBlockId = getHistoricalMeasureBlockId(endDate.getMillis, SECOND_PRECISION_RAW)
       val aggregateIntervalSec = 300
       Seq(startBlockId, endBlockId)
-        .map( blockId => {
-
-          val dataBlock = spark
+        .map( blockId =>  spark
             .read
             .cassandraFormat("sensor_measure_history_seconds", "iot")
             .load()
-            .filter(s"location = '$location'" +
+            .filter(
+              s"location = '$location'" +
               s" AND time_block_id = $blockId" +
               s" AND measure_type = '${measureType.name}'" +
-              s" AND bucket = 0")
-              //+ s" AND timestamp >= '${beginDate.getMillis / 1000}' AND timestamp < '${endDate.getMillis / 1000}'") //TODO: fix ->  Range predicate badly interpreted
+              s" AND timestamp >= '${toCqlTimestamp(beginDate)}'" +
+              s" AND timestamp <  '${toCqlTimestamp(endDate)}'"
+              )
             .select(
-              (($"timestamp".cast(DataTypes.IntegerType) - beginSec) / aggregateIntervalSec)
-                .cast(DataTypes.IntegerType).as("bucketId"),
-              $"value")
-          dataBlock.show()
-          dataBlock
-        })
+               (($"timestamp".cast(DataTypes.IntegerType) - beginSec) / aggregateIntervalSec)
+                  .cast(DataTypes.IntegerType).as("bucketId"),
+                $"value")
+        )
         .reduce((a, b) => a.union(b))
         .groupBy($"bucketId")
         .avg("value")
-        .show(2)
+        .show() //FIXME: avoid full table scan
     }
 
     case class Measure (bucketId: Int, value: Double)

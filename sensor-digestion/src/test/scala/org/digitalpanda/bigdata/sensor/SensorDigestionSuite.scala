@@ -37,13 +37,13 @@ class SensorDigestionSuite extends FunSuite with BeforeAndAfterAll with Embedded
     connector.withSessionDo( session => initCql.foreach(session.execute))
   }
 
-  test("Should be able to access Embedded Cassandra Node") {
+  ignore("Should be able to access Embedded Cassandra Node") {
     assert(connector
       .withSessionDo(session => session.execute("SELECT * FROM system_schema.tables"))
       .all().toString.contains("system_schema"))
   }
 
-  test("'loadLocatedMeasures'  loads set from Cassandra embedded DB ") {
+  ignore("'loadLocatedMeasures'  loads set from Cassandra embedded DB ") {
     // Given
     val expected = Set(
       ("server-room",PRESSURE),
