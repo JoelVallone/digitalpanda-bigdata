@@ -30,6 +30,7 @@ object SensorDigestion {
 
   @transient lazy val spark: SparkSession = SparkSession.builder()
     .config(conf)
+    .enableHiveSupport()
     .getOrCreate()
 
   def aggregateHistory(start: String, end: String): Unit = {
