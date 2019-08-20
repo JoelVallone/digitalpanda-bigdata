@@ -3,6 +3,7 @@ package org.digitalpanda.bigdata.sensor
 
 import com.datastax.spark.connector.cql.CassandraConnector
 import com.datastax.spark.connector.embedded.{EmbeddedCassandra, SparkTemplate, YamlTransformations}
+import org.apache.spark.sql.SparkSession
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
@@ -17,17 +18,18 @@ class SensorDigestionSuite extends FunSuite with BeforeAndAfterAll with Embedded
 
   //Sets up CassandraConfig and SparkContext
   useCassandraConfig(Seq(YamlTransformations.Default))
-  useSparkConf(defaultConf)
-  val connector = CassandraConnector(defaultConf)
-  initEmbeddedDb()
 
-  var uut : SensorDigestion = new SensorDigestion(defaultConf)
+  val spark: SparkSession = useSparkConf(defaultConf)
+  val connector = CassandraConnector(defaultConf)
+  initEmbeddedDb(connector)
+
+  var uut : SensorDigestion = new SensorDigestion(spark)
 
   override def afterAll(): Unit = {
-    uut.spark.stop()
+    spark.stop()
   }
 
-  def initEmbeddedDb(): Unit = {
+  def initEmbeddedDb(connector: CassandraConnector): Unit = {
     val initCql = Source.fromURL(getClass.getClassLoader.getResource("init.cql"))
       .getLines.mkString.split(";")
       .map(s => s + ";")
@@ -41,10 +43,7 @@ class SensorDigestionSuite extends FunSuite with BeforeAndAfterAll with Embedded
       .all().toString.contains("system_schema"))
   }
 
-  /*
-    TODO: use embedded cassandra for tests
-   */
-  test("'loadLocatedMeasures' - loads set from Cassandra embedded DB ") {
+  test("'loadLocatedMeasures'  loads set from Cassandra embedded DB ") {
     // Given
     val expected = Set(
       ("server-room",PRESSURE),

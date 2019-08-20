@@ -1,17 +1,13 @@
 package org.digitalpanda.bigdata.sensor
 
-import java.util.TimeZone
-
-import com.datastax.spark.connector.cql.CassandraConnector
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.SparkConf
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.types.{DataType, DataTypes, StructType}
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.types.DataTypes
 import org.digitalpanda.backend.data.SensorMeasureType
 import org.digitalpanda.backend.data.SensorMeasureType.TEMPERATURE
 import org.digitalpanda.backend.data.history.HistoricalDataStorageHelper.{getHistoricalMeasureBlockId, getRangeSelectionCqlQueries}
 import org.digitalpanda.backend.data.history.HistoricalDataStorageSizing.SECOND_PRECISION_RAW
-import org.joda.time.{DateTime, DateTimeZone}
+import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
 // Cassandra-datastax implicit functions
@@ -23,7 +19,25 @@ object SensorDigestion {
 
   /** Main function */
   def main(args: Array[String]): Unit = {
-    new SensorDigestion().aggregateHistory("01/07/2019 00:00:00", "01/07/2019 00:10:00")
+
+    val begin = "01/07/2019 00:00:00"
+    val end = "01/07/2019 00:10:00"
+
+    val sparkConf = loadSparkConf()
+    val spark = SparkSession.builder().config(sparkConf).getOrCreate()
+    val digestion =  new SensorDigestion(spark)
+
+    val locatedMeasures = digestion.loadLocatedMeasures()
+
+    println(
+      s"Aggregate the history for: \n" +
+      s" - interval [$begin to $end[ \n" +
+      s" - located measures $locatedMeasures")
+
+    println("Example block query: " +
+      digestion.getRawSensorMeasureCqlExampleQuery(parseDate(begin), parseDate(end)))
+
+    //digestion.aggregateHistory(begin, end, locatedMeasures)
   }
 
   def loadSparkConf(): SparkConf = {
@@ -46,48 +60,24 @@ object SensorDigestion {
       .set("spark.cassandra.output.batch.grouping.buffer.size", "1024")
       .set("spark.cassandra.connection.keep_alive_ms", "600000")
   }
+
+  def parseDate(date: String): DateTime =
+    DateTimeFormat.forPattern("dd/MM/yyyy HH:mm:ss").parseDateTime(date)
 }
 
-class SensorDigestion(conf: SparkConf = SensorDigestion.loadSparkConf()) {
+class SensorDigestion(spark: SparkSession){
+  import SensorDigestion._
 
-  @transient lazy val spark: SparkSession = SparkSession.builder()
-    .config(conf)
-    .getOrCreate()
+  def aggregateHistory(begin: String, end: String, locatedMeasures: Set[(Location, SensorMeasureType)]): Unit = {
 
-  def aggregateHistory(start: String, end: String): Unit = {
-
-    def parseDate(date: String): DateTime =
-      DateTimeFormat.forPattern("dd/MM/yyyy HH:mm:ss").parseDateTime(date)
-    val startDate = parseDate(start)
+    val beginDate = parseDate(begin)
     val endDate = parseDate(end)
-    println(s"Aggregate the history of interval [$startDate to $endDate[")
-
-    val locatedMeasures = loadLocatedMeasures()
-    println(s"Located measures to aggregate: $locatedMeasures")
-
-    //val lines = session.read.textFile("src/main/resources/sensor_measure_history_seconds.csv")
-    //https://github.com/datastax/spark-cassandra-connector/blob/master/doc/14_data_frames.md
-
-    // Query by time range of (location, measure_type) with "push down" views
-    //https://github.com/datastax/spark-cassandra-connector/blob/master/doc/14_data_frames.md#example-using-format-helper-functions
-return
-    println(s"Example block query: ${getRawSensorMeasureCqlExampleQuery(startDate, endDate)}")
-    /*
-    Example query:
-    SELECT *
-    FROM iot.sensor_measure_history_seconds
-    WHERE location = 'server-room'
-     AND time_block_id = 2979
-     AND measure_type = 'TEMPERATURE'
-     AND bucket = 0
-     AND timestamp >= '2019-07-01T00:00:00.000+02:00' AND timestamp < '2019-07-01T00:10:00.000+02:00' limit 1;
-    */
 
     for ((location, measureType) <- locatedMeasures){//Seq(("server-room", TEMPERATURE))) {
         import spark.implicits._
-        val startBlockId = getHistoricalMeasureBlockId(startDate.getMillis, SECOND_PRECISION_RAW)
+        val startBlockId = getHistoricalMeasureBlockId(beginDate.getMillis, SECOND_PRECISION_RAW)
         val endBlockId = getHistoricalMeasureBlockId(endDate.getMillis, SECOND_PRECISION_RAW)
-        val bucketCount = (endDate.getMillis - startDate.getMillis) / 300000
+        val bucketCount = (endDate.getMillis - beginDate.getMillis) / 300000
         Seq(startBlockId, endBlockId)
           .map( blockId =>
             spark
@@ -98,13 +88,13 @@ return
                 s" AND time_block_id = $blockId" +
                 s" AND measure_type = '${measureType.name}'" +
                 s" AND bucket = 0" +
-                s" AND timestamp >= '$startDate' AND timestamp < '$endDate'") // Range predicate does not seem to be used
+                s" AND timestamp >= '$beginDate' AND timestamp < '$endDate'") //TODO: fix ->  Range predicate does not seem to be used
               .select(($"timestamp".cast(DataTypes.IntegerType) / bucketCount).cast(DataTypes.IntegerType).as("bucketId"), $"value")
           )
           .reduce((a, b) => a.union(b))
           .groupBy($"bucketId")
           .avg("value")
-          .show(2) // returns empty table
+          .show(2) //TODO: fix -> returns empty table
     }
 
     case class Measure (bucketId: Int, value: Double)
@@ -112,6 +102,7 @@ return
 
 
   def loadLocatedMeasures() :  Set[(Location, SensorMeasureType)] = {
+    // https://github.com/datastax/spark-cassandra-connector/blob/master/doc/14_data_frames.md
     import spark.implicits._
     spark
       .read

@@ -31,7 +31,8 @@ libraryDependencies ++= Seq(
 
 ).map(_.excludeAll(
   ExclusionRule("org.slf4j","log4j-over-slf4j"),
-  ExclusionRule("org.slf4j","slf4j-log4j12"))
+  ExclusionRule("org.slf4j","slf4j-log4j12"),
+  ExclusionRule("net.jpountz.lz4", name = "lz4"))
 ) // Excluded to allow for Cassandra to run embedded
 
 //Forking is required for the Embedded Cassandra
