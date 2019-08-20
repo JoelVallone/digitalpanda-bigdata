@@ -21,22 +21,22 @@ CREATE TABLE IF NOT EXISTS iot.sensor_measure_history_seconds (
 ) WITH CLUSTERING ORDER BY (timestamp DESC);
 
 INSERT INTO iot.sensor_measure_history_seconds (location, time_block_id, measure_type, bucket, timestamp, value) VALUES
-    ( 'server-room', 2979, 'TEMPERATURE', 0, '2019-06-30 22:09:59.928+00:00', 26.5);
+    ( 'server-room', 2979, 'TEMPERATURE', 0, '2019-06-30 22:09:59.928+00:00', 26);
 
 INSERT INTO iot.sensor_measure_history_seconds (location, time_block_id, measure_type, bucket, timestamp, value) VALUES
-    ( 'server-room', 2979, 'TEMPERATURE', 0, '2019-06-30 22:09:58.927+00:00', 26.5);
+    ( 'server-room', 2979, 'TEMPERATURE', 0, '2019-06-30 22:09:58.927+00:00', 26);
 
 INSERT INTO iot.sensor_measure_history_seconds (location, time_block_id, measure_type, bucket, timestamp, value) VALUES
-    ( 'server-room', 2979, 'TEMPERATURE', 0, '2019-06-30 22:09:57.926+00:00', 26.5);
+    ( 'server-room', 2979, 'TEMPERATURE', 0, '2019-06-30 22:09:57.926+00:00', 26);
 
 INSERT INTO iot.sensor_measure_history_seconds (location, time_block_id, measure_type, bucket, timestamp, value) VALUES
-    ( 'server-room', 2979, 'TEMPERATURE', 0, '2019-06-30 22:09:56.926+00:00', 26.5);
+    ( 'server-room', 2979, 'TEMPERATURE', 0, '2019-06-30 22:09:56.926+00:00', 27);
 
 INSERT INTO iot.sensor_measure_history_seconds (location, time_block_id, measure_type, bucket, timestamp, value) VALUES
-    ( 'server-room', 2979, 'TEMPERATURE', 0, '2019-06-30 22:09:55.926+00:00', 26.5);
+    ( 'server-room', 2979, 'TEMPERATURE', 0, '2019-06-30 22:09:55.926+00:00', 27);
 
 INSERT INTO iot.sensor_measure_history_seconds (location, time_block_id, measure_type, bucket, timestamp, value) VALUES
-    ( 'server-room', 2979, 'TEMPERATURE', 0, '2019-06-30 22:09:54.925+00:00', 26.5);
+    ( 'server-room', 2979, 'TEMPERATURE', 0, '2019-06-30 22:09:54.925+00:00', 27);
 
 INSERT INTO iot.sensor_measure_history_seconds (location, time_block_id, measure_type, bucket, timestamp, value) VALUES
     ( 'server-room', 2979, 'TEMPERATURE', 0, '2019-06-30 22:09:53.926+00:00', 26.5);

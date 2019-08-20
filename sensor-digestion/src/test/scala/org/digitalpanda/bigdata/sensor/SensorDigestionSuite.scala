@@ -58,4 +58,17 @@ class SensorDigestionSuite extends FunSuite with BeforeAndAfterAll with Embedded
     // Then
     assert(actual === expected)
   }
+
+  test("'aggregateHistory' computes aggregate for located measure over interval ") {
+    // Given
+    val locatedMeasures = Set(("server-room", TEMPERATURE))
+    val begin = "01/07/2019 00:00:00"
+    val end = "01/07/2019 00:10:00"
+
+    // When
+    uut.aggregateHistory(begin, end, locatedMeasures)
+
+    // Then
+    // -> Nil
+  }
 }

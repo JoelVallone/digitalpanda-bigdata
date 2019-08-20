@@ -27,17 +27,14 @@ object SensorDigestion {
     val spark = SparkSession.builder().config(sparkConf).getOrCreate()
     val digestion =  new SensorDigestion(spark)
 
-    val locatedMeasures = digestion.loadLocatedMeasures()
+    val locatedMeasures = Set(("server-room", TEMPERATURE))//digestion.loadLocatedMeasures()
 
     println(
       s"Aggregate the history for: \n" +
       s" - interval [$begin to $end[ \n" +
       s" - located measures $locatedMeasures")
 
-    println("Example block query: " +
-      digestion.getRawSensorMeasureCqlExampleQuery(parseDate(begin), parseDate(end)))
-
-    //digestion.aggregateHistory(begin, end, locatedMeasures)
+    digestion.aggregateHistory(begin, end, locatedMeasures)
   }
 
   def loadSparkConf(): SparkConf = {
@@ -73,28 +70,35 @@ class SensorDigestion(spark: SparkSession){
     val beginDate = parseDate(begin)
     val endDate = parseDate(end)
 
-    for ((location, measureType) <- locatedMeasures){//Seq(("server-room", TEMPERATURE))) {
+    for ((location, measureType) <- locatedMeasures) {
         import spark.implicits._
-        val startBlockId = getHistoricalMeasureBlockId(beginDate.getMillis, SECOND_PRECISION_RAW)
-        val endBlockId = getHistoricalMeasureBlockId(endDate.getMillis, SECOND_PRECISION_RAW)
-        val bucketCount = (endDate.getMillis - beginDate.getMillis) / 300000
-        Seq(startBlockId, endBlockId)
-          .map( blockId =>
-            spark
-              .read
-              .cassandraFormat("sensor_measure_history_seconds", "iot")
-              .load()
-              .filter(s"location = '$location'" +
-                s" AND time_block_id = $blockId" +
-                s" AND measure_type = '${measureType.name}'" +
-                s" AND bucket = 0" +
-                s" AND timestamp >= '$beginDate' AND timestamp < '$endDate'") //TODO: fix ->  Range predicate does not seem to be used
-              .select(($"timestamp".cast(DataTypes.IntegerType) / bucketCount).cast(DataTypes.IntegerType).as("bucketId"), $"value")
-          )
-          .reduce((a, b) => a.union(b))
-          .groupBy($"bucketId")
-          .avg("value")
-          .show(2) //TODO: fix -> returns empty table
+      val beginSec = beginDate.getMillis / 1000
+      val startBlockId = getHistoricalMeasureBlockId(beginDate.getMillis, SECOND_PRECISION_RAW)
+      val endBlockId = getHistoricalMeasureBlockId(endDate.getMillis, SECOND_PRECISION_RAW)
+      val aggregateIntervalSec = 300
+      Seq(startBlockId, endBlockId)
+        .map( blockId => {
+
+          val dataBlock = spark
+            .read
+            .cassandraFormat("sensor_measure_history_seconds", "iot")
+            .load()
+            .filter(s"location = '$location'" +
+              s" AND time_block_id = $blockId" +
+              s" AND measure_type = '${measureType.name}'" +
+              s" AND bucket = 0")
+              //+ s" AND timestamp >= '${beginDate.getMillis / 1000}' AND timestamp < '${endDate.getMillis / 1000}'") //TODO: fix ->  Range predicate badly interpreted
+            .select(
+              (($"timestamp".cast(DataTypes.IntegerType) - beginSec) / aggregateIntervalSec)
+                .cast(DataTypes.IntegerType).as("bucketId"),
+              $"value")
+          dataBlock.show()
+          dataBlock
+        })
+        .reduce((a, b) => a.union(b))
+        .groupBy($"bucketId")
+        .avg("value")
+        .show(2)
     }
 
     case class Measure (bucketId: Int, value: Double)
@@ -113,12 +117,4 @@ class SensorDigestion(spark: SparkSession){
       .map(row => (row.getString(0), SensorMeasureType.valueOf(row.getString(1))))
       .toSet
   }
-
-  def getRawSensorMeasureCqlExampleQuery(startDate: DateTime, endDate: DateTime): String =
-    getRangeSelectionCqlQueries(
-      "server-room",
-      TEMPERATURE,
-      SECOND_PRECISION_RAW,
-      startDate.getMillis,
-      endDate.getMillis).toString
 }
