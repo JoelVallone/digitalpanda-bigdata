@@ -2,6 +2,7 @@ package org.digitalpanda.bigdata.sensor
 
 import java.util.TimeZone
 
+import com.datastax.spark.connector.cql.CassandraConnector
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
@@ -17,20 +18,40 @@ import org.joda.time.format.DateTimeFormat
 import com.datastax.spark.connector._
 import org.apache.spark.sql.cassandra._
 
-object SensorDigestion {
 
+object SensorDigestion {
 
   /** Main function */
   def main(args: Array[String]): Unit = {
-    aggregateHistory("01/07/2019 00:00:00","01/07/2019 00:10:00")
+    new SensorDigestion().aggregateHistory("01/07/2019 00:00:00", "01/07/2019 00:10:00")
   }
 
+  def loadSparkConf(): SparkConf = {
+    new SparkConf()
+      //Spark instance config
+      .setMaster("local")
+      .setAppName("SensorDigestion")
+      .set("spark.driver.bindAddress", "127.0.0.1")
+      //Cassandra connection
+      .set("spark.cassandra.connection.host", "127.0.0.1")
+      .set("spark.cassandra.connection.port", "9040")
+      .set("spark.cassandra.connection.ssl.enabled", "false")
+      //.set("spark.cassandra.auth.username","???")
+      //.set("spark.cassandra.auth.password","???")
+      //Cassandra throughput-related
+      .set("spark.cassandra.output.batch.size.rows", "1")
+      .set("spark.cassandra.connection.connections_per_executor_max", "10")
+      .set("spark.cassandra.output.concurrent.writes", "1024")
+      .set("spark.cassandra.concurrent.reads", "512")
+      .set("spark.cassandra.output.batch.grouping.buffer.size", "1024")
+      .set("spark.cassandra.connection.keep_alive_ms", "600000")
+  }
+}
 
-  @transient lazy val conf: SparkConf = loadSparkConf()
+class SensorDigestion(conf: SparkConf = SensorDigestion.loadSparkConf()) {
 
   @transient lazy val spark: SparkSession = SparkSession.builder()
     .config(conf)
-    .enableHiveSupport()
     .getOrCreate()
 
   def aggregateHistory(start: String, end: String): Unit = {
@@ -49,7 +70,7 @@ object SensorDigestion {
 
     // Query by time range of (location, measure_type) with "push down" views
     //https://github.com/datastax/spark-cassandra-connector/blob/master/doc/14_data_frames.md#example-using-format-helper-functions
-
+return
     println(s"Example block query: ${getRawSensorMeasureCqlExampleQuery(startDate, endDate)}")
     /*
     Example query:
@@ -100,27 +121,6 @@ object SensorDigestion {
     .collect()
       .map(row => (row.getString(0), SensorMeasureType.valueOf(row.getString(1))))
       .toSet
-  }
-
-  def loadSparkConf(): SparkConf = {
-    new SparkConf()
-      //Spark instance config
-      .setMaster("local")
-      .setAppName("SensorDigestion")
-      .set("spark.driver.bindAddress", "127.0.0.1")
-      //Cassandra connection
-      .set("spark.cassandra.connection.host", "127.0.0.1")
-      .set("spark.cassandra.connection.port", "9040")
-      .set("spark.cassandra.connection.ssl.enabled", "false")
-      //.set("spark.cassandra.auth.username","???")
-      //.set("spark.cassandra.auth.password","???")
-      //Cassandra throughput-related
-      .set("spark.cassandra.output.batch.size.rows", "1")
-      .set("spark.cassandra.connection.connections_per_executor_max", "10")
-      .set("spark.cassandra.output.concurrent.writes", "1024")
-      .set("spark.cassandra.concurrent.reads", "512")
-      .set("spark.cassandra.output.batch.grouping.buffer.size", "1024")
-      .set("spark.cassandra.connection.keep_alive_ms", "600000")
   }
 
   def getRawSensorMeasureCqlExampleQuery(startDate: DateTime, endDate: DateTime): String =

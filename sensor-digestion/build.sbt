@@ -21,8 +21,9 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-sql" % "2.4.3",
   "com.datastax.spark" %% "spark-cassandra-connector" % connectorVersion,
 
-  "org.digitalpanda" % "backend.api" % "0.1.0",
+  "org.digitalpanda" % "backend.api" % "0.1.0")
 
+libraryDependencies ++= Seq(
   "com.datastax.spark"  %% "spark-cassandra-connector-embedded" % "2.0.10" % "test",
   "org.apache.cassandra" % "cassandra-all" % cassandraVersion % "test",
   "junit" % "junit" % jUnitVersion %  "test",

@@ -8,44 +8,43 @@ import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 import org.digitalpanda.backend.data.SensorMeasureType._
 
+import scala.io.Source
+
 @RunWith(classOf[JUnitRunner])
-class SensorDigestionSuite extends FunSuite with BeforeAndAfterAll with EmbeddedCassandra with SparkTemplate{
+class SensorDigestionSuite extends FunSuite with BeforeAndAfterAll with EmbeddedCassandra with SparkTemplate {
 
   override def clearCache(): Unit = CassandraConnector.evictCache()
 
   //Sets up CassandraConfig and SparkContext
   useCassandraConfig(Seq(YamlTransformations.Default))
   useSparkConf(defaultConf)
-
   val connector = CassandraConnector(defaultConf)
+  initEmbeddedDb()
 
-  /*
-  def initializeSensorDigestion(): Boolean =
-    try {
-      SensorDigestion
-      true
-    } catch {
-      case ex: Throwable =>
-        println(ex.getMessage)
-        ex.printStackTrace()
-        false
-    }
+  var uut : SensorDigestion = new SensorDigestion(defaultConf)
 
   override def afterAll(): Unit = {
-    SensorDigestion.spark.stop()
-  }*/
+    uut.spark.stop()
+  }
+
+  def initEmbeddedDb(): Unit = {
+    val initCql = Source.fromURL(getClass.getClassLoader.getResource("init.cql"))
+      .getLines.mkString.split(";")
+      .map(s => s + ";")
+      .toList
+    connector.withSessionDo( session => initCql.foreach(session.execute))
+  }
 
   test("Should be able to access Embedded Cassandra Node") {
-    println(connector
+    assert(connector
       .withSessionDo(session => session.execute("SELECT * FROM system_schema.tables"))
-      .all())
-
+      .all().toString.contains("system_schema"))
   }
 
   /*
     TODO: use embedded cassandra for tests
    */
-  ignore("'loadLocatedMeasures' - loads set from Cassandra embedded DB ") {
+  test("'loadLocatedMeasures' - loads set from Cassandra embedded DB ") {
     // Given
     val expected = Set(
       ("server-room",PRESSURE),
@@ -54,9 +53,8 @@ class SensorDigestionSuite extends FunSuite with BeforeAndAfterAll with Embedded
       ("outdoor", TEMPERATURE),
       ("outdoor", HUMIDITY))
 
-
     // When
-    val actual = SensorDigestion.loadLocatedMeasures()
+    val actual = uut.loadLocatedMeasures()
 
     // Then
     assert(actual === expected)
