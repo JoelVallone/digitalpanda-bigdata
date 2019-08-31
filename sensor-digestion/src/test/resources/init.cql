@@ -48,7 +48,10 @@ INSERT INTO iot.sensor_measure_history_seconds (location, time_block_id, measure
     ( 'server-room', 2979, 'TEMPERATURE', 0, '2019-06-30 22:09:51.926+00:00', 26.5);
 
 INSERT INTO iot.sensor_measure_history_seconds (location, time_block_id, measure_type, bucket, timestamp, value) VALUES
-    ( 'server-room', 2979, 'TEMPERATURE', 0, '2019-06-30 22:19:50.926+00:00', 300000.5);
+    ( 'server-room', 2979, 'TEMPERATURE', 0, '2019-06-30 22:19:50.926+00:00', 40.0);
+
+INSERT INTO iot.sensor_measure_history_seconds (location, time_block_id, measure_type, bucket, timestamp, value) VALUES
+    ( 'server-room', 2979, 'TEMPERATURE', 0, '2019-06-30 22:20:00.926+00:00', 300000.5);
 
 
 INSERT INTO iot.sensor_measure_history_seconds (location, time_block_id, measure_type, bucket, timestamp, value) VALUES

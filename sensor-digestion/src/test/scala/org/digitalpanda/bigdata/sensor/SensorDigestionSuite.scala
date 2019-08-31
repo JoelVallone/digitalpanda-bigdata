@@ -8,6 +8,8 @@ import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 import org.digitalpanda.backend.data.SensorMeasureType._
+import org.digitalpanda.backend.data.history.HistoricalDataStorageSizing._
+import org.digitalpanda.bigdata.sensor.SensorDigestion.parseDate
 
 import scala.io.Source
 
@@ -61,14 +63,21 @@ class SensorDigestionSuite extends FunSuite with BeforeAndAfterAll with Embedded
 
   test("'aggregateHistory' computes aggregate for located measure over interval ") {
     // Given
-    val locatedMeasures = Set(("server-room", TEMPERATURE))
-    val begin = "01/07/2019 00:00:00"
-    val end = "01/07/2019 00:10:00"
+    val location = "server-room"
+    val metric = TEMPERATURE
+    val beginDate =  parseDate("01/07/2019 00:00:00")
+    val endDate =  parseDate("01/07/2019 00:20:00")
+    val expected = Set(
+      Measure(1561932570, 26.5),
+      Measure(1561933170, 40.0)
+    )
 
     // When
-    uut.aggregateHistory(begin, end, locatedMeasures)
+    val actual = uut.aggregateHistory(
+      beginDate, endDate, location, metric,
+      SECOND_PRECISION_RAW, MINUTE_PRECISION_AVG)
 
     // Then
-    // -> Nil
+    assert(actual.collect().toSet === expected)
   }
 }

@@ -1,12 +1,13 @@
 package org.digitalpanda.bigdata.sensor
 
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{Dataset, SparkSession}
 import org.apache.spark.sql.types.DataTypes
 import org.digitalpanda.backend.data.SensorMeasureType
 import org.digitalpanda.backend.data.SensorMeasureType.TEMPERATURE
 import org.digitalpanda.backend.data.history.HistoricalDataStorageHelper.{getHistoricalMeasureBlockId, getRangeSelectionCqlQueries}
-import org.digitalpanda.backend.data.history.HistoricalDataStorageSizing.SECOND_PRECISION_RAW
+import org.digitalpanda.backend.data.history.HistoricalDataStorageSizing
+import org.digitalpanda.backend.data.history.HistoricalDataStorageSizing.{MINUTE_PRECISION_AVG, SECOND_PRECISION_RAW}
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
@@ -20,8 +21,8 @@ object SensorDigestion {
   /** Main function */
   def main(args: Array[String]): Unit = {
 
-    val begin = "01/07/2019 00:00:00"
-    val end = "01/07/2019 00:10:00"
+    val beginDate = parseDate("01/07/2019 00:00:00")
+    val endDate = parseDate("01/07/2019 00:10:00")
 
     val conf = SensorDigestion.loadSparkConf()
     val spark = SparkSession.builder().config(conf).getOrCreate()
@@ -29,12 +30,18 @@ object SensorDigestion {
 
     val locatedMeasures =  Set(("server-room", TEMPERATURE)) //digestion.loadLocatedMeasures() //
 
-    println(
-      s"Aggregate the history for: \n" +
-      s" - interval [$begin to $end[ \n" +
-      s" - located measures $locatedMeasures")
+    for ((location, measure) <- locatedMeasures) {
+      println(
+        s"Aggregate the history for: \n" +
+          s" - interval [$beginDate to $endDate[ \n" +
+          s" - location $location \n" +
+          s"-  measure $measure")
 
-    //digestion.aggregateHistory(begin, end, locatedMeasures)
+      digestion.aggregateHistory(
+        beginDate, endDate, location, measure,
+        SECOND_PRECISION_RAW, MINUTE_PRECISION_AVG)
+        .show(20)
+    }
   }
 
   def loadSparkConf(): SparkConf = {
@@ -70,41 +77,46 @@ class SensorDigestion(spark: SparkSession){
 
   import SensorDigestion._
 
-  def aggregateHistory(begin: String, end: String, locatedMeasures: Set[(Location, SensorMeasureType)]): Unit = {
-
-    val beginDate = parseDate(begin)
-    val endDate = parseDate(end)
-
-    for ((location, measureType) <- locatedMeasures) {
-        import spark.implicits._
-      val beginSec = beginDate.getMillis / 1000
-      val startBlockId = getHistoricalMeasureBlockId(beginDate.getMillis, SECOND_PRECISION_RAW)
-      val endBlockId = getHistoricalMeasureBlockId(endDate.getMillis, SECOND_PRECISION_RAW)
-      val aggregateIntervalSec = 300
-      Seq(startBlockId, endBlockId)
-        .map( blockId =>  spark
-            .read
-            .cassandraFormat("sensor_measure_history_seconds", "iot")
-            .load()
-            .filter(
-              s"location = '$location'" +
-              s" AND time_block_id = $blockId" +
-              s" AND measure_type = '${measureType.name}'" +
-              s" AND timestamp >= '${toCqlTimestamp(beginDate)}'" +
-              s" AND timestamp <  '${toCqlTimestamp(endDate)}'"
-              )
-            .select(
-               (($"timestamp".cast(DataTypes.IntegerType) - beginSec) / aggregateIntervalSec)
-                  .cast(DataTypes.IntegerType).as("bucketId"),
-                $"value")
-        )
-        .reduce((a, b) => a.union(b))
-        .groupBy($"bucketId")
-        .avg("value")
-        .show() //FIXME: avoid full table scan
-    }
-
-    case class Measure (bucketId: Int, value: Double)
+  def aggregateHistory(beginDate: DateTime,
+                       endDate: DateTime,
+                       location: Location,
+                       measureType: SensorMeasureType,
+                       sourceDataSizing: HistoricalDataStorageSizing,
+                       targetDataSizing: HistoricalDataStorageSizing): Dataset[Measure] = {
+    import spark.implicits._
+    val beginSec = beginDate.getMillis / 1000
+    val startBlockId = getHistoricalMeasureBlockId(beginDate.getMillis, sourceDataSizing)
+    val endBlockId = getHistoricalMeasureBlockId(endDate.getMillis, sourceDataSizing)
+    val aggregateIntervalSec = targetDataSizing.getAggregateIntervalSeconds
+    val df = (startBlockId to endBlockId)
+      .map( blockId =>  {
+        val block = spark
+          .read
+          .cassandraFormat("sensor_measure_history_seconds", "iot")
+          .load()
+          .filter(
+            s"location = '$location'" +
+            s" AND time_block_id = $blockId" +
+            s" AND measure_type = '${measureType.name}'" +
+            s" AND timestamp >= '${toCqlTimestamp(beginDate)}'" +
+            s" AND timestamp <  '${toCqlTimestamp(endDate)}'"
+            )
+          .select(
+             (($"timestamp".cast(DataTypes.IntegerType) - beginSec) / aggregateIntervalSec)
+                .cast(DataTypes.IntegerType).as("bucketId"),
+              $"value")
+        //block.show()
+        block
+      })
+      .reduce((b1, b2) => b1.union(b2))
+      .groupBy($"bucketId")
+      .avg("value")
+      .select(
+        $"avg(value)".as("value"),
+        ((($"bucketId" + 0.5) * aggregateIntervalSec).cast(DataTypes.LongType) + beginSec.toLong).as("timestamp")
+      ).as[Measure]
+    //df.show()  //FIXME: avoid full table scan
+    df
   }
 
 
