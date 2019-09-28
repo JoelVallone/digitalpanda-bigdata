@@ -94,18 +94,19 @@ class SensorDigestion(spark: SparkSession){
           .read
           .cassandraFormat("sensor_measure_history_seconds", "iot")
           .load()
+          //https://docs.datastax.com/en/dse/6.7/dse-dev/datastax_enterprise/spark/sparkPredicatePushdown.html
           .filter(
             s"location = '$location'" +
             s" AND time_block_id = $blockId" +
             s" AND measure_type = '${measureType.name}'" +
-            s" AND timestamp >= '${toCqlTimestamp(beginDate)}'" +
-            s" AND timestamp <  '${toCqlTimestamp(endDate)}'"
+            s" AND timestamp >= cast('${toCqlTimestamp(beginDate)}' as TIMESTAMP)" +
+            s" AND timestamp <  cast('${toCqlTimestamp(endDate)}' as TIMESTAMP)" /**/
             )
           .select(
              (($"timestamp".cast(DataTypes.IntegerType) - beginSec) / aggregateIntervalSec)
                 .cast(DataTypes.IntegerType).as("bucketId"),
               $"value")
-        //block.show()
+        block.explain
         block
       })
       .reduce((b1, b2) => b1.union(b2))
@@ -115,7 +116,6 @@ class SensorDigestion(spark: SparkSession){
         $"avg(value)".as("value"),
         ((($"bucketId" + 0.5) * aggregateIntervalSec).cast(DataTypes.LongType) + beginSec.toLong).as("timestamp")
       ).as[Measure]
-    //df.show()  //FIXME: avoid full table scan
     df
   }
 

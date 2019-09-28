@@ -19,7 +19,8 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-sql" % sparkVersion,
   "com.datastax.spark" %% "spark-cassandra-connector" % connectorVersion,
 
-  "org.digitalpanda" % "backend.api" % "0.1.0")
+  "org.digitalpanda" % "backend.api" % "0.1.0"
+)
 /* TODO: Resolve dependency version issue with tests
 .map(_.excludeAll(
   ExclusionRule("com.google.guava","guava"))
