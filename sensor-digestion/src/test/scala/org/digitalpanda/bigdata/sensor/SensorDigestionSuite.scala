@@ -68,12 +68,12 @@ class SensorDigestionSuite extends FunSuite with BeforeAndAfterAll with Embedded
     val beginDate =  parseDate("01/07/2019 00:00:00")
     val endDate =  parseDate("01/07/2019 00:20:00")
     val expected = Set(
-      Measure(1561932570, 26.5),
-      Measure(1561933170, 40.0)
+      AnonymousAggregate(1561932570, 26.5),
+      AnonymousAggregate(1561933170, 40.0)
     )
 
     // When
-    val actual = uut.aggregateHistory(
+    val actual = uut.avgAggregateHistory(
       beginDate, endDate, location, metric,
       SECOND_PRECISION_RAW, MINUTE_PRECISION_AVG)
 

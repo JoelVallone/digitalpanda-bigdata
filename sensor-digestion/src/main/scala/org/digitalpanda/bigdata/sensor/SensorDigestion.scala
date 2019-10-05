@@ -5,9 +5,8 @@ import org.apache.spark.sql.{Dataset, SparkSession}
 import org.apache.spark.sql.types.DataTypes
 import org.digitalpanda.backend.data.SensorMeasureType
 import org.digitalpanda.backend.data.SensorMeasureType.TEMPERATURE
-import org.digitalpanda.backend.data.history.HistoricalDataStorageHelper.{getHistoricalMeasureBlockId, getRangeSelectionCqlQueries}
-import org.digitalpanda.backend.data.history.HistoricalDataStorageSizing
-import org.digitalpanda.backend.data.history.HistoricalDataStorageSizing.{MINUTE_PRECISION_AVG, SECOND_PRECISION_RAW}
+import org.digitalpanda.backend.data.history.{AggregateType, HistoricalDataStorageHelper, HistoricalDataStorageSizing}
+import org.digitalpanda.backend.data.history.HistoricalDataStorageHelper.{cqlTableOf, getHistoricalMeasureBlockId}
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
@@ -28,19 +27,38 @@ object SensorDigestion {
     val spark = SparkSession.builder().config(conf).getOrCreate()
     val digestion =  new SensorDigestion(spark)
 
-    val locatedMeasures =  Set(("server-room", TEMPERATURE)) //digestion.loadLocatedMeasures() //
+    val locatedMeasures =  Set(("server-room", TEMPERATURE)) //digestion.loadLocatedMeasures()
 
-    for ((location, measure) <- locatedMeasures) {
-      println(
-        s"Aggregate the history for: \n" +
-          s" - interval [$beginDate to $endDate[ \n" +
-          s" - location $location \n" +
-          s"-  measure $measure")
+    def sourceTargetPrecisionPairs(aggregateType: AggregateType) :  List[(HistoricalDataStorageSizing, HistoricalDataStorageSizing)] = {
+      import HistoricalDataStorageSizing._
+      val sortedSizings = values()
+        .filter(s => s.getAggregateType == aggregateType || s == SECOND_PRECISION_RAW)
+        .sorted
+      val sources = sortedSizings.take(sortedSizings.length-1)
+      val targets = sortedSizings.tail
+      sources.zip(targets).toList
+    }
 
-      digestion.aggregateHistory(
-        beginDate, endDate, location, measure,
-        SECOND_PRECISION_RAW, MINUTE_PRECISION_AVG)
-        .show(20)
+    import scala.util.control.Breaks._
+    breakable {
+      for ( aggregateType <- AggregateType.AVERAGE::Nil;
+            (sourcePrecision, targetPrecision) <- sourceTargetPrecisionPairs(aggregateType) ;
+            (location, measureUnit) <- locatedMeasures) {
+        println(
+          s"Aggregate the history for: \n" +
+            s" - interval: [$beginDate to $endDate[ \n" +
+            s" - location: $location \n" +
+            s" - aggregate type: $aggregateType \n" +
+            s"-  source precision: $sourcePrecision\n" +
+            s"-  target precision: $targetPrecision")
+
+        val aggregate: Dataset[AnonymousAggregate] = digestion
+          .avgAggregateHistory(beginDate, endDate, location, measureUnit, sourcePrecision, targetPrecision)
+          .persist()
+        aggregate
+          .show(20)
+        digestion.saveAggregate(aggregate, location,  measureUnit, targetPrecision)
+      }
     }
   }
 
@@ -75,14 +93,37 @@ object SensorDigestion {
 
 class SensorDigestion(spark: SparkSession){
 
+  val cassandra_kespace = "iot"
+
   import SensorDigestion._
 
-  def aggregateHistory(beginDate: DateTime,
-                       endDate: DateTime,
-                       location: Location,
-                       measureType: SensorMeasureType,
-                       sourceDataSizing: HistoricalDataStorageSizing,
-                       targetDataSizing: HistoricalDataStorageSizing): Dataset[Measure] = {
+  def saveAggregate(ds: Dataset[AnonymousAggregate],
+                    location: String,
+                    measureUnit: SensorMeasureType,
+                    targetDataSizing: HistoricalDataStorageSizing): Unit = {
+    import spark.implicits._
+    ds
+      .repartition(1) // Write data from only one node to keep insertion order (small data set)
+      .map( anonAgg =>
+        Aggregate(
+          location,
+          getHistoricalMeasureBlockId(anonAgg.timestamp),
+          measureUnit.name,
+          HistoricalDataStorageHelper.SENSOR_MEASURE_DEFAULT_BUCKET_ID,
+          anonAgg.timestamp,
+          anonAgg.value
+        ))
+      .write
+      .cassandraFormat(cqlTableOf(targetDataSizing), cassandra_kespace)
+      .save() //TODO: Continue here with tests...
+  }
+
+  def avgAggregateHistory(beginDate: DateTime,
+                          endDate: DateTime,
+                          location: Location,
+                          measureType: SensorMeasureType,
+                          sourceDataSizing: HistoricalDataStorageSizing,
+                          targetDataSizing: HistoricalDataStorageSizing): Dataset[AnonymousAggregate] = {
     import spark.implicits._
     val beginSec = beginDate.getMillis / 1000
     val startBlockId = getHistoricalMeasureBlockId(beginDate.getMillis, sourceDataSizing)
@@ -92,7 +133,7 @@ class SensorDigestion(spark: SparkSession){
       .map( blockId =>  {
         val block = spark
           .read
-          .cassandraFormat("sensor_measure_history_seconds", "iot")
+          .cassandraFormat(cqlTableOf(sourceDataSizing), cassandra_kespace)
           .load()
           //https://docs.datastax.com/en/dse/6.7/dse-dev/datastax_enterprise/spark/sparkPredicatePushdown.html
           .filter(
@@ -115,7 +156,7 @@ class SensorDigestion(spark: SparkSession){
       .select(
         $"avg(value)".as("value"),
         ((($"bucketId" + 0.5) * aggregateIntervalSec).cast(DataTypes.LongType) + beginSec.toLong).as("timestamp")
-      ).as[Measure]
+      ).as[AnonymousAggregate]
     df
   }
 
@@ -125,7 +166,7 @@ class SensorDigestion(spark: SparkSession){
     import spark.implicits._
     spark
       .read
-      .cassandraFormat("sensor_measure_latest", "iot")
+      .cassandraFormat("sensor_measure_latest", cassandra_kespace)
       .load()
       .select($"location", $"measure_type")
     .collect()
