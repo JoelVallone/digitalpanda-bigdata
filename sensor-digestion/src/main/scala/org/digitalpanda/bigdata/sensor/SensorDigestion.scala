@@ -104,10 +104,10 @@ class SensorDigestion(spark: SparkSession){
     import spark.implicits._
     ds
       .repartition(1) // Write data from only one node to keep insertion order (small data set)
-      .map( anonAgg =>
+      .map(anonAgg =>
         Aggregate(
           location,
-          getHistoricalMeasureBlockId(anonAgg.timestamp),
+          getHistoricalMeasureBlockId(anonAgg.timestamp * 1000, targetDataSizing),
           measureUnit.name,
           HistoricalDataStorageHelper.SENSOR_MEASURE_DEFAULT_BUCKET_ID,
           anonAgg.timestamp,
@@ -115,7 +115,7 @@ class SensorDigestion(spark: SparkSession){
         ))
       .write
       .cassandraFormat(cqlTableOf(targetDataSizing), cassandra_kespace)
-      .save() //TODO: Continue here with tests...
+      .save()
   }
 
   def avgAggregateHistory(beginDate: DateTime,

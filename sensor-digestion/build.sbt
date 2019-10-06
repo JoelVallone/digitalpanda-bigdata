@@ -5,27 +5,29 @@ version := "0.1"
 scalaVersion := "2.11.12"
 
 resolvers += Resolver.mavenLocal
-//resolvers += "DataStax Repo" at "https://repo.datastax.com/public-repos/"
-
 
 val sparkVersion = "2.4.3"
 val connectorVersion = "2.4.1"
 val scalaTestVersion = "2.2.4"
 val jUnitVersion = "4.12"
 val cassandraVersion = "3.2"
+val cassandraClientVersion = "3.7.2"
 
 libraryDependencies ++= Seq(
+  // Scala
   "org.apache.spark" %% "spark-core" % sparkVersion,
   "org.apache.spark" %% "spark-sql" % sparkVersion,
   "com.datastax.spark" %% "spark-cassandra-connector" % connectorVersion,
 
+  // Java
+  //"com.datastax.cassandra" % "cassandra-driver-mapping" % cassandraClientVersion, <= Do not use as it causes class clash
   "org.digitalpanda" % "backend.api" % "0.1.0"
 )
 /* TODO: Resolve dependency version issue with tests
 .map(_.excludeAll(
   ExclusionRule("com.google.guava","guava"))
 ) // Excluded to allow for Cassandra to run embedded
-
+resolvers += "DataStax Repo" at "https://repo.datastax.com/public-repos/"
 */
 
 libraryDependencies ++= Seq(
@@ -43,5 +45,3 @@ libraryDependencies ++= Seq(
 //Forking is required for the Embedded Cassandra
 fork in Test := true
 
-
-//assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false)

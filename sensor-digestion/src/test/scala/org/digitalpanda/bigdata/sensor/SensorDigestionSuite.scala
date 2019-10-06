@@ -1,13 +1,16 @@
 package org.digitalpanda.bigdata.sensor
 
 
+import com.datastax.driver.core.Cluster
 import com.datastax.spark.connector.cql.CassandraConnector
 import com.datastax.spark.connector.embedded.{EmbeddedCassandra, SparkTemplate, YamlTransformations}
 import org.apache.spark.sql.SparkSession
+import org.digitalpanda.backend.data.SensorMeasureType
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 import org.digitalpanda.backend.data.SensorMeasureType._
+import org.digitalpanda.backend.data.history.{HistoricalDataStorageHelper, HistoricalDataStorageSizing}
 import org.digitalpanda.backend.data.history.HistoricalDataStorageSizing._
 import org.digitalpanda.bigdata.sensor.SensorDigestion.parseDate
 
@@ -39,13 +42,13 @@ class SensorDigestionSuite extends FunSuite with BeforeAndAfterAll with Embedded
     connector.withSessionDo( session => initCql.foreach(session.execute))
   }
 
-  ignore("Should be able to access Embedded Cassandra Node") {
+  test("Should be able to access Embedded Cassandra Node") {
     assert(connector
       .withSessionDo(session => session.execute("SELECT * FROM system_schema.tables"))
       .all().toString.contains("system_schema"))
   }
 
-  ignore("'loadLocatedMeasures'  loads set from Cassandra embedded DB ") {
+  test("'loadLocatedMeasures'  loads set from Cassandra embedded DB ") {
     // Given
     val expected = Set(
       ("server-room",PRESSURE),
@@ -79,5 +82,50 @@ class SensorDigestionSuite extends FunSuite with BeforeAndAfterAll with Embedded
 
     // Then
     assert(actual.collect().toSet === expected)
+  }
+
+  test("'saveAggregate' saves aggregate into appropriate target db table") {
+    import spark.implicits._
+    import collection.JavaConverters._
+
+    // Given
+    val cluster = Cluster.builder()
+      .addContactPoint("127.0.0.1")
+      .withPort(10550).build()
+    val session = cluster.connect()
+    val ds = List(
+      AnonymousAggregate(1561932570, 26.5),
+      AnonymousAggregate(1561933170, 40.0)
+    ).toDS()
+
+    // When
+    val targetPrecision = HistoricalDataStorageSizing.MINUTE_PRECISION_AVG
+    uut.saveAggregate(ds,
+      "garage",
+      SensorMeasureType.TEMPERATURE,
+      targetPrecision)
+
+    // Then
+    val targetTable = s"iot.${HistoricalDataStorageHelper.cqlTableOf(targetPrecision)}"
+    val actual = connector
+      .withSessionDo(session => {
+        session.execute(s"SELECT * FROM $targetTable")
+      })
+      .all().asScala
+      .map(row => {
+          Aggregate(
+            row.getString("location"),
+            row.getLong("time_block_id"),
+            row.getString("measure_type"),
+            row.getInt("bucket"),
+            row.getTimestamp("timestamp").getTime,
+            row.getDouble("value")
+          )
+        }
+      )
+    println(s"Data written to table $targetTable: $actual")
+    assert(ds.collect().toSet === actual.map(a => AnonymousAggregate(a.timestamp, a.value)).toSet)
+    assert(actual.head.location === "garage")
+    assert(actual.head.measure_type === SensorMeasureType.TEMPERATURE.name())
   }
 }
