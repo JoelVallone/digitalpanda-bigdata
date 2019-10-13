@@ -1,12 +1,15 @@
 package org.digitalpanda.bigdata.sensor
 
+import com.datastax.driver.core.ConsistencyLevel
+import com.datastax.spark.connector.rdd.ReadConf
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.{Dataset, SparkSession}
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.sql.types.DataTypes
 import org.digitalpanda.backend.data.SensorMeasureType
 import org.digitalpanda.backend.data.SensorMeasureType.TEMPERATURE
 import org.digitalpanda.backend.data.history.{AggregateType, HistoricalDataStorageHelper, HistoricalDataStorageSizing}
 import org.digitalpanda.backend.data.history.HistoricalDataStorageHelper.{cqlTableOf, getHistoricalMeasureBlockId}
+import org.digitalpanda.backend.data.history.HistoricalDataStorageSizing.SECOND_PRECISION_RAW
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
@@ -42,22 +45,16 @@ object SensorDigestion {
     import scala.util.control.Breaks._
     breakable {
       for ( aggregateType <- AggregateType.AVERAGE::Nil;
-            (sourcePrecision, targetPrecision) <- sourceTargetPrecisionPairs(aggregateType) ;
             (location, measureUnit) <- locatedMeasures) {
-        println(
-          s"Aggregate the history for: \n" +
-            s" - interval: [$beginDate to $endDate[ \n" +
-            s" - location: $location \n" +
-            s" - aggregate type: $aggregateType \n" +
-            s"-  source precision: $sourcePrecision\n" +
-            s"-  target precision: $targetPrecision")
-
-        val aggregate: Dataset[AnonymousAggregate] = digestion
-          .avgAggregateHistory(beginDate, endDate, location, measureUnit, sourcePrecision, targetPrecision)
-          .persist()
-        aggregate
-          .show(20)
-        digestion.saveAggregate(aggregate, location,  measureUnit, targetPrecision)
+        var measures = digestion.loadSensorMeasure(beginDate, endDate, location, measureUnit)
+        for((sourcePrecision, targetPrecision) <- sourceTargetPrecisionPairs(aggregateType)) {
+          measures = digestion
+            .avgAggregateHistory(measures, beginDate, endDate, location, measureUnit, sourcePrecision, targetPrecision)
+            .persist()
+          measures.show(120)
+          // digestion.saveAggregate(measures, location,  measureUnit, targetPrecision)
+        }
+        break()
       }
     }
   }
@@ -75,10 +72,13 @@ object SensorDigestion {
       //.set("spark.cassandra.auth.username","???")
       //.set("spark.cassandra.auth.password","???")
       //Cassandra throughput-related
+      // https://github.com/datastax/spark-cassandra-connector/blob/master/doc/reference.md
+      .set("spark.cassandra.input.split.size_in_mb", "64") //TODO: Address unrealistic partition count when reading data
+      .set("spark.cassandra.input.fetch.size_in_rows", "86400")
+      .set("spark.cassandra.concurrent.reads", "512")
       .set("spark.cassandra.output.batch.size.rows", "1")
       .set("spark.cassandra.connection.connections_per_executor_max", "10")
       .set("spark.cassandra.output.concurrent.writes", "1024")
-      .set("spark.cassandra.concurrent.reads", "512")
       .set("spark.cassandra.output.batch.grouping.buffer.size", "1024")
       .set("spark.cassandra.connection.keep_alive_ms", "600000")
   }
@@ -97,13 +97,12 @@ class SensorDigestion(spark: SparkSession){
 
   import SensorDigestion._
 
-  def saveAggregate(ds: Dataset[AnonymousAggregate],
+  def saveAggregate(ds: Dataset[AnonymousMeasure],
                     location: String,
                     measureUnit: SensorMeasureType,
                     targetDataSizing: HistoricalDataStorageSizing): Unit = {
     import spark.implicits._
     ds
-      .repartition(1) // Write data from only one node to keep insertion order (small data set)
       .map(anonAgg =>
         Aggregate(
           location,
@@ -118,48 +117,54 @@ class SensorDigestion(spark: SparkSession){
       .save()
   }
 
-  def avgAggregateHistory(beginDate: DateTime,
+  def avgAggregateHistory(sourceData: Dataset[AnonymousMeasure],
+                          beginDate: DateTime,
                           endDate: DateTime,
                           location: Location,
                           measureType: SensorMeasureType,
                           sourceDataSizing: HistoricalDataStorageSizing,
-                          targetDataSizing: HistoricalDataStorageSizing): Dataset[AnonymousAggregate] = {
+                          targetDataSizing: HistoricalDataStorageSizing): Dataset[AnonymousMeasure] = {
     import spark.implicits._
     val beginSec = beginDate.getMillis / 1000
-    val startBlockId = getHistoricalMeasureBlockId(beginDate.getMillis, sourceDataSizing)
-    val endBlockId = getHistoricalMeasureBlockId(endDate.getMillis, sourceDataSizing)
     val aggregateIntervalSec = targetDataSizing.getAggregateIntervalSeconds
-    val df = (startBlockId to endBlockId)
-      .map( blockId =>  {
-        val block = spark
-          .read
-          .cassandraFormat(cqlTableOf(sourceDataSizing), cassandra_kespace)
-          .load()
-          //https://docs.datastax.com/en/dse/6.7/dse-dev/datastax_enterprise/spark/sparkPredicatePushdown.html
-          .filter(
-            s"location = '$location'" +
-            s" AND time_block_id = $blockId" +
-            s" AND measure_type = '${measureType.name}'" +
-            s" AND timestamp >= cast('${toCqlTimestamp(beginDate)}' as TIMESTAMP)" +
-            s" AND timestamp <  cast('${toCqlTimestamp(endDate)}' as TIMESTAMP)" /**/
-            )
-          .select(
-             (($"timestamp".cast(DataTypes.IntegerType) - beginSec) / aggregateIntervalSec)
-                .cast(DataTypes.IntegerType).as("bucketId"),
-              $"value")
-        block.explain
-        block
-      })
-      .reduce((b1, b2) => b1.union(b2))
+    sourceData
+      .map(m => ((m.timestamp - beginSec) / aggregateIntervalSec, m.value)).toDF("bucketId", "value")
       .groupBy($"bucketId")
       .avg("value")
       .select(
         $"avg(value)".as("value"),
         ((($"bucketId" + 0.5) * aggregateIntervalSec).cast(DataTypes.LongType) + beginSec.toLong).as("timestamp")
-      ).as[AnonymousAggregate]
-    df
+      ).as[AnonymousMeasure]
   }
 
+  def loadSensorMeasure(beginDate: DateTime,
+                        endDate: DateTime,
+                        location: Location,
+                        measureType: SensorMeasureType): Dataset[AnonymousMeasure] =  {
+    import spark.implicits._
+    val startBlockId = getHistoricalMeasureBlockId(beginDate.getMillis, SECOND_PRECISION_RAW)
+    val endBlockId = getHistoricalMeasureBlockId(endDate.getMillis, SECOND_PRECISION_RAW)
+
+    def loadSensorTimeBlock(blockId: Long): Dataset[AnonymousMeasure] =
+      spark
+        .read
+        .cassandraFormat(cqlTableOf(SECOND_PRECISION_RAW), cassandra_kespace)
+        .load()
+        //https://docs.datastax.com/en/dse/6.7/dse-dev/datastax_enterprise/spark/sparkPredicatePushdown.html
+        .filter(
+          s"location = '$location'" +
+            s" AND time_block_id = $blockId" +
+            s" AND measure_type = '${measureType.name}'" +
+            s" AND timestamp >= cast('${toCqlTimestamp(beginDate)}' as TIMESTAMP)" +
+            s" AND timestamp <  cast('${toCqlTimestamp(endDate)}' as TIMESTAMP)" /**/
+        )
+        .select($"timestamp", $"value")
+        .as[AnonymousMeasure]
+
+    (startBlockId to endBlockId)
+      .map(loadSensorTimeBlock)
+      .reduce((b1, b2) => b1.union(b2)) // TODO: Check impact of reduce & union on performance : https://stackoverflow.com/questions/37612622/spark-unionall-multiple-dataframes
+  }
 
   def loadLocatedMeasures() :  Set[(Location, SensorMeasureType)] = {
     // https://github.com/datastax/spark-cassandra-connector/blob/master/doc/14_data_frames.md

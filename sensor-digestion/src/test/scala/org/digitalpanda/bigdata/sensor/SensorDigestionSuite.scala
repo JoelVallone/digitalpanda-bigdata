@@ -71,13 +71,14 @@ class SensorDigestionSuite extends FunSuite with BeforeAndAfterAll with Embedded
     val beginDate =  parseDate("01/07/2019 00:00:00")
     val endDate =  parseDate("01/07/2019 00:20:00")
     val expected = Set(
-      AnonymousAggregate(1561932570, 26.5),
-      AnonymousAggregate(1561933170, 40.0)
+      AnonymousMeasure(1561932570, 26.5),
+      AnonymousMeasure(1561933170, 40.0)
     )
 
     // When
+    val measures = uut.loadSensorMeasure(beginDate, endDate, location, metric).persist()
     val actual = uut.avgAggregateHistory(
-      beginDate, endDate, location, metric,
+      measures, beginDate, endDate, location, metric,
       SECOND_PRECISION_RAW, MINUTE_PRECISION_AVG)
 
     // Then
@@ -94,8 +95,8 @@ class SensorDigestionSuite extends FunSuite with BeforeAndAfterAll with Embedded
       .withPort(10550).build()
     val session = cluster.connect()
     val ds = List(
-      AnonymousAggregate(1561932570, 26.5),
-      AnonymousAggregate(1561933170, 40.0)
+      AnonymousMeasure(1561932570, 26.5),
+      AnonymousMeasure(1561933170, 40.0)
     ).toDS()
 
     // When
@@ -124,7 +125,7 @@ class SensorDigestionSuite extends FunSuite with BeforeAndAfterAll with Embedded
         }
       )
     println(s"Data written to table $targetTable: $actual")
-    assert(ds.collect().toSet === actual.map(a => AnonymousAggregate(a.timestamp, a.value)).toSet)
+    assert(ds.collect().toSet === actual.map(a => AnonymousMeasure(a.timestamp, a.value)).toSet)
     assert(actual.head.location === "garage")
     assert(actual.head.measure_type === SensorMeasureType.TEMPERATURE.name())
   }
