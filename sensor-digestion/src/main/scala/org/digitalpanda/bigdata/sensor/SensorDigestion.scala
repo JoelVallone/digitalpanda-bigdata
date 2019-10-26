@@ -57,31 +57,38 @@ object SensorDigestion {
         break()
       }
     }
+
+    println("Press enter to end program....")
+    scala.io.StdIn.readLine()
   }
 
-  def loadSparkConf(): SparkConf = {
+  def loadSparkConf(): SparkConf =
     new SparkConf()
-      //Spark instance config
+
+      // Spark instance config
       .setMaster("local")
       .setAppName("SensorDigestion")
       .set("spark.driver.bindAddress", "127.0.0.1")
-      //Cassandra connection
+      .set("spark.logLineage", "true")
+
+      // Cassandra connection
       .set("spark.cassandra.connection.host", "127.0.0.1")
       .set("spark.cassandra.connection.port", "9040")
       .set("spark.cassandra.connection.ssl.enabled", "false")
-      //.set("spark.cassandra.auth.username","???")
-      //.set("spark.cassandra.auth.password","???")
-      //Cassandra throughput-related
-      // https://github.com/datastax/spark-cassandra-connector/blob/master/doc/reference.md
-      .set("spark.cassandra.input.split.size_in_mb", "64") //TODO: Address unrealistic partition count when reading data
+        //.set("spark.cassandra.auth.username","???")
+        //.set("spark.cassandra.auth.password","???")
+
+      // Cassandra throughput-related
+      //    => https://github.com/datastax/spark-cassandra-connector/blob/master/doc/reference.md
+      .set("spark.cassandra.input.split.size_in_mb", "64")
       .set("spark.cassandra.input.fetch.size_in_rows", "86400")
+      .set("splitCount", "10") // Force Cassandra input data task split to a minimum as table before filtering has high partition count
       .set("spark.cassandra.concurrent.reads", "512")
-      .set("spark.cassandra.output.batch.size.rows", "1")
+      .set("spark.cassandra.output.batch.size.rows", "1000")
       .set("spark.cassandra.connection.connections_per_executor_max", "10")
       .set("spark.cassandra.output.concurrent.writes", "1024")
       .set("spark.cassandra.output.batch.grouping.buffer.size", "1024")
       .set("spark.cassandra.connection.keep_alive_ms", "600000")
-  }
 
   def parseDate(date: String): DateTime =
     DateTimeFormat.forPattern("dd/MM/yyyy HH:mm:ss").parseDateTime(date)
@@ -128,8 +135,8 @@ class SensorDigestion(spark: SparkSession){
     val beginSec = beginDate.getMillis / 1000
     val aggregateIntervalSec = targetDataSizing.getAggregateIntervalSeconds
     sourceData
-      .map(m => ((m.timestamp - beginSec) / aggregateIntervalSec, m.value)).toDF("bucketId", "value")
-      .groupBy($"bucketId")
+      .map(m => ((m.timestamp - beginSec) / aggregateIntervalSec, m.value)).toDF("bucketId", "value") // Shuffle ?
+      .groupBy($"bucketId") // Shuffle
       .avg("value")
       .select(
         $"avg(value)".as("value"),

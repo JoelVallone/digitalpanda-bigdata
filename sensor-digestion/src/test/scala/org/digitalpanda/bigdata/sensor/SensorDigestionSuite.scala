@@ -35,11 +35,13 @@ class SensorDigestionSuite extends FunSuite with BeforeAndAfterAll with Embedded
   }
 
   def initEmbeddedDb(connector: CassandraConnector): Unit = {
-    val initCql = Source.fromURL(getClass.getClassLoader.getResource("init.cql"))
+    val source = Source.fromURL(getClass.getClassLoader.getResource("init.cql"))
+    val initCql = source
       .getLines.mkString.split(";")
       .map(s => s + ";")
       .toList
     connector.withSessionDo( session => initCql.foreach(session.execute))
+    source.close()
   }
 
   test("Should be able to access Embedded Cassandra Node") {
