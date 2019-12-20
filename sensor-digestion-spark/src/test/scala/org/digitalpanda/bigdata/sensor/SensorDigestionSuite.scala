@@ -66,7 +66,7 @@ class SensorDigestionSuite extends FunSuite with BeforeAndAfterAll with Embedded
     assert(actual === expected)
   }
 
-  test("'aggregateHistory' computes aggregate for located measure over interval ") {
+  test("'loadSensorMeasure + avgAggregateHistory' for located measure over interval : load raw measures & compute aggregate  ") {
     // Given
     val location = "server-room"
     val metric = TEMPERATURE
