@@ -1,5 +1,6 @@
 ThisBuild / resolvers ++= Seq(
     "Apache Development Snapshot Repository" at "https://repository.apache.org/content/repositories/snapshots/",
+    "Maven Central" at "https://repo1.maven.org/maven2/",
     Resolver.mavenLocal
 )
 
@@ -15,14 +16,20 @@ val flinkVersion = "1.9.1"
 
 val flinkDependencies = Seq(
   "org.apache.flink" %% "flink-scala" % flinkVersion % "provided",
-  "org.apache.flink" %% "flink-streaming-scala" % flinkVersion % "provided")
+  "org.apache.flink" %% "flink-streaming-scala" % flinkVersion % "provided",
+
+  "org.apache.flink" %% "flink-connector-kafka" % flinkVersion ,
+
+  "org.apache.flink" % "flink-avro" % flinkVersion,
+  "org.apache.flink" % "flink-avro-confluent-registry" % flinkVersion
+)
 
 lazy val root = (project in file(".")).
   settings(
     libraryDependencies ++= flinkDependencies
   )
 
-assembly / mainClass := Some("org.digitalpanda.wordcount.Job")
+assembly / mainClass := Some("org.digitalpanda.flink.sensor.digestion.DigestionJob")
 
 // make run command include the provided dependencies
 Compile / run  := Defaults.runTask(Compile / fullClasspath,

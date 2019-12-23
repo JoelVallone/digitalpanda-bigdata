@@ -1,4 +1,4 @@
-package org.digitalpanda.wordcount
+package org.digitalpanda.flink.example
 
 /**
  * Licensed to the Apache Software Foundation (ASF) under one
