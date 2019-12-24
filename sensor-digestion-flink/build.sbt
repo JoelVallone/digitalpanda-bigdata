@@ -13,6 +13,7 @@ organization := "org.digitalpanda.wordcount"
 ThisBuild / scalaVersion := "2.11.12"
 
 val flinkVersion = "1.9.1"
+val avroVersion = "1.9.1"
 
 val flinkDependencies = Seq(
   "org.apache.flink" %% "flink-scala" % flinkVersion % "provided",
@@ -21,7 +22,8 @@ val flinkDependencies = Seq(
   "org.apache.flink" %% "flink-connector-kafka" % flinkVersion ,
 
   "org.apache.flink" % "flink-avro" % flinkVersion,
-  "org.apache.flink" % "flink-avro-confluent-registry" % flinkVersion
+  "org.apache.flink" % "flink-avro-confluent-registry" % flinkVersion,
+  "org.apache.avro" % "avro" % avroVersion
 )
 
 lazy val root = (project in file(".")).

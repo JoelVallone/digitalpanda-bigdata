@@ -4,7 +4,7 @@
    "name": "Measure",
    "fields": [
       {"name": "location", "type": "string"},
-      { "name": "measure_type",
+      { "name": "measureType",
         "type": {
             "type": "enum",
                   "name": "MeasureType",

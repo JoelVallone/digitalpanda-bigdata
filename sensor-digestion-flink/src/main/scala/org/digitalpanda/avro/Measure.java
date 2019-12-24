@@ -14,8 +14,8 @@ import org.apache.avro.message.SchemaStore;
 
 @org.apache.avro.specific.AvroGenerated
 public class Measure extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  private static final long serialVersionUID = 2518054623929697669L;
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Measure\",\"namespace\":\"org.digitalpanda.avro\",\"fields\":[{\"name\":\"location\",\"type\":\"string\"},{\"name\":\"measure_type\",\"type\":{\"type\":\"enum\",\"name\":\"MeasureType\",\"symbols\":[\"TEMPERATURE\",\"HUMIDITY\",\"PRESSURE\"]}},{\"name\":\"timestamp\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-millis\"}},{\"name\":\"value\",\"type\":\"double\"}]}");
+  private static final long serialVersionUID = 3856969948530370859L;
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Measure\",\"namespace\":\"org.digitalpanda.avro\",\"fields\":[{\"name\":\"location\",\"type\":\"string\"},{\"name\":\"measureType\",\"type\":{\"type\":\"enum\",\"name\":\"MeasureType\",\"symbols\":[\"TEMPERATURE\",\"HUMIDITY\",\"PRESSURE\"]}},{\"name\":\"timestamp\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-millis\"}},{\"name\":\"value\",\"type\":\"double\"}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
 
   private static SpecificData MODEL$ = new SpecificData();
@@ -75,7 +75,7 @@ static {
   }
 
    private java.lang.CharSequence location;
-   private org.digitalpanda.avro.MeasureType measure_type;
+   private org.digitalpanda.avro.MeasureType measureType;
    private java.time.Instant timestamp;
    private double value;
 
@@ -89,13 +89,13 @@ static {
   /**
    * All-args constructor.
    * @param location The new value for location
-   * @param measure_type The new value for measure_type
+   * @param measureType The new value for measureType
    * @param timestamp The new value for timestamp
    * @param value The new value for value
    */
-  public Measure(java.lang.CharSequence location, org.digitalpanda.avro.MeasureType measure_type, java.time.Instant timestamp, java.lang.Double value) {
+  public Measure(java.lang.CharSequence location, org.digitalpanda.avro.MeasureType measureType, java.time.Instant timestamp, java.lang.Double value) {
     this.location = location;
-    this.measure_type = measure_type;
+    this.measureType = measureType;
     this.timestamp = timestamp.truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
     this.value = value;
   }
@@ -106,7 +106,7 @@ static {
   public java.lang.Object get(int field$) {
     switch (field$) {
     case 0: return location;
-    case 1: return measure_type;
+    case 1: return measureType;
     case 2: return timestamp;
     case 3: return value;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
@@ -132,7 +132,7 @@ static {
   public void put(int field$, java.lang.Object value$) {
     switch (field$) {
     case 0: location = (java.lang.CharSequence)value$; break;
-    case 1: measure_type = (org.digitalpanda.avro.MeasureType)value$; break;
+    case 1: measureType = (org.digitalpanda.avro.MeasureType)value$; break;
     case 2: timestamp = (java.time.Instant)value$; break;
     case 3: value = (java.lang.Double)value$; break;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
@@ -157,20 +157,20 @@ static {
   }
 
   /**
-   * Gets the value of the 'measure_type' field.
-   * @return The value of the 'measure_type' field.
+   * Gets the value of the 'measureType' field.
+   * @return The value of the 'measureType' field.
    */
   public org.digitalpanda.avro.MeasureType getMeasureType() {
-    return measure_type;
+    return measureType;
   }
 
 
   /**
-   * Sets the value of the 'measure_type' field.
+   * Sets the value of the 'measureType' field.
    * @param value the value to set.
    */
   public void setMeasureType(org.digitalpanda.avro.MeasureType value) {
-    this.measure_type = value;
+    this.measureType = value;
   }
 
   /**
@@ -248,7 +248,7 @@ static {
     implements org.apache.avro.data.RecordBuilder<Measure> {
 
     private java.lang.CharSequence location;
-    private org.digitalpanda.avro.MeasureType measure_type;
+    private org.digitalpanda.avro.MeasureType measureType;
     private java.time.Instant timestamp;
     private double value;
 
@@ -267,8 +267,8 @@ static {
         this.location = data().deepCopy(fields()[0].schema(), other.location);
         fieldSetFlags()[0] = other.fieldSetFlags()[0];
       }
-      if (isValidValue(fields()[1], other.measure_type)) {
-        this.measure_type = data().deepCopy(fields()[1].schema(), other.measure_type);
+      if (isValidValue(fields()[1], other.measureType)) {
+        this.measureType = data().deepCopy(fields()[1].schema(), other.measureType);
         fieldSetFlags()[1] = other.fieldSetFlags()[1];
       }
       if (isValidValue(fields()[2], other.timestamp)) {
@@ -291,8 +291,8 @@ static {
         this.location = data().deepCopy(fields()[0].schema(), other.location);
         fieldSetFlags()[0] = true;
       }
-      if (isValidValue(fields()[1], other.measure_type)) {
-        this.measure_type = data().deepCopy(fields()[1].schema(), other.measure_type);
+      if (isValidValue(fields()[1], other.measureType)) {
+        this.measureType = data().deepCopy(fields()[1].schema(), other.measureType);
         fieldSetFlags()[1] = true;
       }
       if (isValidValue(fields()[2], other.timestamp)) {
@@ -346,29 +346,29 @@ static {
     }
 
     /**
-      * Gets the value of the 'measure_type' field.
+      * Gets the value of the 'measureType' field.
       * @return The value.
       */
     public org.digitalpanda.avro.MeasureType getMeasureType() {
-      return measure_type;
+      return measureType;
     }
 
 
     /**
-      * Sets the value of the 'measure_type' field.
-      * @param value The value of 'measure_type'.
+      * Sets the value of the 'measureType' field.
+      * @param value The value of 'measureType'.
       * @return This builder.
       */
     public org.digitalpanda.avro.Measure.Builder setMeasureType(org.digitalpanda.avro.MeasureType value) {
       validate(fields()[1], value);
-      this.measure_type = value;
+      this.measureType = value;
       fieldSetFlags()[1] = true;
       return this;
     }
 
     /**
-      * Checks whether the 'measure_type' field has been set.
-      * @return True if the 'measure_type' field has been set, false otherwise.
+      * Checks whether the 'measureType' field has been set.
+      * @return True if the 'measureType' field has been set, false otherwise.
       */
     public boolean hasMeasureType() {
       return fieldSetFlags()[1];
@@ -376,11 +376,11 @@ static {
 
 
     /**
-      * Clears the value of the 'measure_type' field.
+      * Clears the value of the 'measureType' field.
       * @return This builder.
       */
     public org.digitalpanda.avro.Measure.Builder clearMeasureType() {
-      measure_type = null;
+      measureType = null;
       fieldSetFlags()[1] = false;
       return this;
     }
@@ -469,7 +469,7 @@ static {
       try {
         Measure record = new Measure();
         record.location = fieldSetFlags()[0] ? this.location : (java.lang.CharSequence) defaultValue(fields()[0]);
-        record.measure_type = fieldSetFlags()[1] ? this.measure_type : (org.digitalpanda.avro.MeasureType) defaultValue(fields()[1]);
+        record.measureType = fieldSetFlags()[1] ? this.measureType : (org.digitalpanda.avro.MeasureType) defaultValue(fields()[1]);
         record.timestamp = fieldSetFlags()[2] ? this.timestamp : (java.time.Instant) defaultValue(fields()[2]);
         record.value = fieldSetFlags()[3] ? this.value : (java.lang.Double) defaultValue(fields()[3]);
         return record;
