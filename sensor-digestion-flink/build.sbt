@@ -14,6 +14,7 @@ ThisBuild / scalaVersion := "2.11.12"
 
 val flinkVersion = "1.9.1"
 val avroVersion = "1.9.1"
+val beamVersion = "2.16.0"
 
 val flinkDependencies = Seq(
   "org.apache.flink" %% "flink-scala" % flinkVersion % "provided",
@@ -23,7 +24,8 @@ val flinkDependencies = Seq(
 
   "org.apache.flink" % "flink-avro" % flinkVersion,
   "org.apache.flink" % "flink-avro-confluent-registry" % flinkVersion,
-  "org.apache.avro" % "avro" % avroVersion
+  "org.apache.avro" % "avro" % avroVersion,
+  "org.apache.beam" % "beam-sdks-java-core" % beamVersion
 )
 
 lazy val root = (project in file(".")).

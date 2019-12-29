@@ -30,6 +30,11 @@ case class JobConf(confResourceOpt: Option[String]) {
     prop.setProperty("group.id", generateConfig(KafkaGroupIdKey))
     prop
   }
+  def kafkaProducerConfig() : Properties = {
+    val prop = new Properties()
+    prop.setProperty("bootstrap.servers", generateConfig("base.kafka.bootstrap.servers"))
+    prop
+  }
 
   def hdfsCheckpointPath() : String =
     generateConfig("base.hdfs.namenode.base-url") + generateConfig(CheckpointFolderKey)
