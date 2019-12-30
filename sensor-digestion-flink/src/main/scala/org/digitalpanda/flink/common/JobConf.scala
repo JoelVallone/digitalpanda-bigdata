@@ -16,7 +16,7 @@ case class JobConf(confResourceOpt: Option[String]) {
   val KafkaGroupIdKey = "flink.stream.group.id"
   val CheckpointFolderKey = "flink.stream.checkpoint.base-folder"
 
-  def generateConfig(key: String): String = {
+  def generateConfig(key: String): String = key match {
     case KafkaGroupIdKey => "org.digitalpanda.flink." + jobName
     case CheckpointFolderKey => jobName
     case _ => config.getString(key)

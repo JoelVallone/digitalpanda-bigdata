@@ -7,9 +7,8 @@ import org.apache.flink.streaming.api.scala.function.ProcessWindowFunction
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow
 import org.apache.flink.util.Collector
 import org.digitalpanda.avro.Measure
-
 case class EmitAggregateMeasure() extends ProcessWindowFunction[Double, (Tuple, Measure), Tuple, TimeWindow] {
-  def process(key: Tuple, context: Context, aggregate: Iterable[Double], out: Collector[(Tuple, Measure)]): () =
+  def process(key: Tuple, context: Context, aggregate: Iterable[Double], out: Collector[(Tuple, Measure)]) =
     out.collect((
         key,
         Measure

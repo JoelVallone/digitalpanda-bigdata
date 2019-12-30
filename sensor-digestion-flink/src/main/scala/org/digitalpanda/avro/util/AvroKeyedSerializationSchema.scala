@@ -7,9 +7,9 @@ import org.apache.beam.sdk.coders.{AvroCoder, Coder}
 import org.apache.flink.api.java.tuple.Tuple
 import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema
 
-class AvroKeyedSerializationSchema[V<: SpecificRecord]() extends KeyedSerializationSchema[Pair[Tuple, V]] {
+class AvroKeyedSerializationSchema[V<: SpecificRecord](tClass: Class[V]) extends KeyedSerializationSchema[Pair[Tuple, V]] {
 
-  val coder: AvroCoder[V] = AvroCoder.of(classOf[V])
+  val coder: AvroCoder[V] = AvroCoder.of(tClass)
   val out: ByteArrayOutputStream = new ByteArrayOutputStream
 
   override def serializeKey(element: (Tuple, V)): Array[Byte] =

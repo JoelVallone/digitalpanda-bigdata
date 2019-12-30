@@ -1,0 +1,96 @@
+package org.digitalpanda.flink.sensor.digestion;
+
+
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+import java.util
+
+import org.apache.flink.api.java.tuple.Tuple
+import org.apache.flink.streaming.api.functions.sink.SinkFunction
+import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
+import org.apache.flink.streaming.util.FiniteTestSource
+import org.apache.flink.test.util.{MiniClusterResourceConfiguration, MiniClusterWithClientResource}
+import org.digitalpanda.avro.MeasureType.{PRESSURE, TEMPERATURE}
+import org.digitalpanda.avro.{Measure, MeasureType}
+import org.scalatest.BeforeAndAfter
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.must.Matchers
+
+import scala.collection.mutable.ArrayBuffer;
+
+// https://ci.apache.org/projects/flink/flink-docs-release-1.9/dev/stream/testing.html#testing-flink-jobs
+class MeasureDigestionJobTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
+
+    private val config: MiniClusterResourceConfiguration = new MiniClusterResourceConfiguration.Builder()
+      .setNumberSlotsPerTaskManager(1)
+      .setNumberTaskManagers(1)
+      .build
+
+    val flinkCluster = new MiniClusterWithClientResource(config)
+
+    before {
+        flinkCluster.before()
+    }
+
+    after {
+        flinkCluster.after()
+    }
+
+
+    "MeasureDigestionJob pipeline" should "compute 60 seconds averages by <Location, MeasureType>" in {
+        // Given
+        val rawMeasureSource = new FiniteTestSource(
+            measure("server-room", TEMPERATURE, "2019-06-30T22:09:59Z", 26.0),
+
+            measure("server-room", TEMPERATURE, "2019-06-30T22:10:00Z", 35.5),
+            measure("server-room", TEMPERATURE, "2019-06-30T22:10:10Z", 30.0),
+            measure("server-room", PRESSURE, "2019-06-30T22:10:20Z", 789.0),
+            measure("server-room", TEMPERATURE, "2019-06-30T22:10:20Z", 35.0),
+            measure("outdoor", TEMPERATURE, "2019-06-30T22:10:20Z", 5.0),
+            measure("server-room", TEMPERATURE, "2019-06-30T22:10:59Z", 30.0),
+
+            measure("server-room", TEMPERATURE, "2019-06-30T22:12:00Z", 30.0),
+            measure("server-room", TEMPERATURE, "2019-06-30T22:12:59Z", 54.0),
+
+            measure("server-room", TEMPERATURE, "2019-06-30T22:13:00Z", 15.0),
+            measure("server-room", PRESSURE, "2019-06-30T22:13:00Z", 780.0),
+            measure("outdoor", TEMPERATURE, "2019-06-30T22:13:00Z", 6.0)
+        )
+        val avgMeasureSink = new CollectSink()
+        val env = StreamExecutionEnvironment.getExecutionEnvironment
+        env.setParallelism(2)
+
+        // When
+        MeasureDigestionJob.buildProcessing(env, rawMeasureSource, avgMeasureSink).execute("MeasureDigestionJobUUT")
+
+        // Then
+        println(s"Averages: \n${CollectSink.values.mkString("\n")}")
+        //TODO: Continue job integration test + KafkaAvroProducerSchema unit test
+        /*
+        //CollectSink.values should contain allOf (2, 22, 23)
+         */
+    }
+
+    def measure(location: String, measureType: MeasureType, zuluTime: String, value: Double): Measure =
+        Measure.newBuilder()
+          .setLocation(location)
+          .setMeasureType(measureType)
+          .setTimestamp(ZonedDateTime.parse(zuluTime, DateTimeFormatter.ISO_INSTANT).toInstant)
+          .setValue(value)
+          .build()
+
+    // create a testing sink
+    class CollectSink extends SinkFunction[(Tuple, Measure)] {
+
+        override def invoke(value: (Tuple, Measure)): Unit = {
+            synchronized {
+                CollectSink.values.append(value)
+            }
+        }
+    }
+
+    object CollectSink {
+        // must be static
+        val values: ArrayBuffer[(Tuple, Measure)] = ArrayBuffer()
+    }
+}

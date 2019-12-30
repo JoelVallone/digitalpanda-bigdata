@@ -20,7 +20,9 @@ val flinkDependencies = Seq(
   "org.apache.flink" %% "flink-scala" % flinkVersion % "provided",
   "org.apache.flink" %% "flink-streaming-scala" % flinkVersion % "provided",
 
-  "org.apache.flink" %% "flink-connector-kafka" % flinkVersion ,
+  "org.apache.flink" %% "flink-connector-kafka" % flinkVersion,
+  "org.apache.flink" %% "flink-test-utils" % flinkVersion % "test",
+  "org.scalatest" %% "scalatest" % "3.2.0-M1" % "test",
 
   "org.apache.flink" % "flink-avro" % flinkVersion,
   "org.apache.flink" % "flink-avro-confluent-registry" % flinkVersion,

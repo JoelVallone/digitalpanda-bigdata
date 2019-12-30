@@ -6,7 +6,7 @@ ROOT_FOLDER="${SCRIPT_FOLDER}/.."
 AVRO_TOOL_JAR_NAME="avro-tools-1.9.1.jar"
 AVRO_TOOL_JAR_PATH="${SCRIPT_FOLDER}/${AVRO_TOOL_JAR_NAME}"
 SCHEMA_FOLDER="${SCRIPT_FOLDER}/avro-schemas"
-DEST_CODE_FOLDER="${ROOT_FOLDER}/src/main/scala/"
+DEST_CODE_FOLDER="${ROOT_FOLDER}/src/main/java/"
 
 if [ ! -f "${AVRO_TOOL_JAR_PATH}" ]; then
     echo "DOWNLOAD avro-tools jar: ${AVRO_TOOL_JAR_NAME}"
