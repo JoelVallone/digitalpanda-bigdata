@@ -1,7 +1,6 @@
 package org.digitalpanda.flink.sensor.digestion
 
 import org.apache.avro.specific.SpecificRecord
-import org.apache.flink.api.java.tuple.Tuple
 import org.apache.flink.formats.avro.registry.confluent.ConfluentRegistryAvroDeserializationSchema
 import org.apache.flink.runtime.state.filesystem.FsStateBackend
 import org.apache.flink.streaming.api.functions.sink.SinkFunction
@@ -45,7 +44,7 @@ object MeasureDigestionJob {
 
   def buildProcessing(env: StreamExecutionEnvironment,
                       rawRecordSource: SourceFunction[Measure],
-                      avgRecordSink: SinkFunction[(Tuple, Measure)]): StreamExecutionEnvironment = {
+                      avgRecordSink: SinkFunction[(String, Measure)]): StreamExecutionEnvironment = {
 
     // Topology setup
     env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)
@@ -53,7 +52,7 @@ object MeasureDigestionJob {
     val rawMeasureStream = env
       .addSource(rawRecordSource)
 
-    // -> Process
+    // -> Process //TODO: Parametrize average for multiple windows from config file
     val avgMeasureStream = rawMeasureStream
       // https://ci.apache.org/projects/flink/flink-docs-release-1.9/dev/stream/operators/windows.html#window-functions
       .assignTimestampsAndWatermarks(RawMeasureTimestampExtractor())
@@ -70,14 +69,14 @@ object MeasureDigestionJob {
   def kafkaValueConsumer[V <: SpecificRecord](topic: String, tClass: Class[V]) : FlinkKafkaConsumer[V]  =
   //https://ci.apache.org/projects/flink/flink-docs-release-1.9/dev/connectors/kafka.html
   //Note: The KafkaDeserializationSchemaWrapper used in FlinkKafkaConsumer only reads the value bytes
-    new FlinkKafkaConsumer[V](
+    new FlinkKafkaConsumer(
       topic,
       ConfluentRegistryAvroDeserializationSchema.forSpecific(
         tClass, jobConf.config.getString("kafka.schema.registry.url")),
       jobConf.kafkaConsumerConfig()
     )
 
-  def kafkaKeyedProducer[V <: SpecificRecord](topic: String, tClass: Class[V]): FlinkKafkaProducer[Pair[Tuple, V]] =
+  def kafkaKeyedProducer[V <: SpecificRecord](topic: String, tClass: Class[V]): FlinkKafkaProducer[Pair[String, V]] =
     new FlinkKafkaProducer(
       topic,
       new AvroKeyedSerializationSchema(tClass),
