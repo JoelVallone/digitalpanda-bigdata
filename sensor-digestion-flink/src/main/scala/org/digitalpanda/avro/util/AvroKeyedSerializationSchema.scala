@@ -6,15 +6,12 @@ import org.apache.avro.specific.SpecificRecord
 import org.apache.beam.sdk.coders.{AvroCoder, Coder}
 import org.apache.flink.streaming.util.serialization.KeyedSerializationSchema
 
-//TODO: AvroKeyedSerializationSchema unit test
 class AvroKeyedSerializationSchema[V<: SpecificRecord](tClass: Class[V]) extends KeyedSerializationSchema[Pair[String, V]] {
 
   val coder: AvroCoder[V] = AvroCoder.of(tClass)
   val out: ByteArrayOutputStream = new ByteArrayOutputStream
 
   override def serializeKey(element: (String, V)): Array[Byte] = element._1.getBytes
-
-
 
   override def serializeValue(element: (String, V)): Array[Byte]  = {
     try {

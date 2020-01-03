@@ -1,17 +1,13 @@
 package org.digitalpanda.flink.sensor.digestion
 
-
-import java.time.format.DateTimeFormatter
-import java.time.{ZoneId, ZonedDateTime}
-
-import org.apache.flink.api.common.time.Time
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration
 import org.apache.flink.streaming.api.functions.sink.SinkFunction
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.flink.streaming.util.FiniteTestSource
 import org.apache.flink.test.util.MiniClusterWithClientResource
+import org.digitalpanda.avro.Measure
 import org.digitalpanda.avro.MeasureType.{PRESSURE, TEMPERATURE}
-import org.digitalpanda.avro.{Measure, MeasureType}
+import org.digitalpanda.flink.test.TestHelper.measure
 import org.scalatest.BeforeAndAfter
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -24,7 +20,6 @@ class MeasureDigestionJobTest extends AnyFlatSpec with Matchers with BeforeAndAf
     val flinkCluster = new MiniClusterWithClientResource(new MiniClusterResourceConfiguration.Builder()
       .setNumberSlotsPerTaskManager(1)
       .setNumberTaskManagers(2)
-      .setShutdownTimeout(Time.seconds(1))
       .build)
 
     before {
@@ -37,8 +32,8 @@ class MeasureDigestionJobTest extends AnyFlatSpec with Matchers with BeforeAndAf
 
     "MeasureDigestionJob pipeline" should "compute 60 seconds averages by <Location, MeasureType>" in {
         // Given
-        val env = StreamExecutionEnvironment.getExecutionEnvironment
-          .enableCheckpointing()
+        val env = StreamExecutionEnvironment.getExecutionEnvironment.enableCheckpointing
+          env.setParallelism(2)
 
         val rawMeasureSource = new FiniteTestSource(
             measure("server-room",  TEMPERATURE, "2019-06-30T22:09:59Z", 26.0),
@@ -54,9 +49,7 @@ class MeasureDigestionJobTest extends AnyFlatSpec with Matchers with BeforeAndAf
             measure("server-room",  TEMPERATURE,  "2019-06-30T22:12:59Z", 54.0)
         )
         val avgMeasureSink = new CollectSink()
-        // values are collected in a static variable
         CollectSink.values.clear()
-        env.setParallelism(2)
 
         // When
         MeasureDigestionJob
@@ -64,6 +57,7 @@ class MeasureDigestionJobTest extends AnyFlatSpec with Matchers with BeforeAndAf
           .execute("MeasureDigestionJobUUT")
 
         // Then
+        println(s"Averages: \n${CollectSink.values.mkString("\n")}")
         CollectSink.values.toSet should contain allOf (
           ("server-room-TEMPERATURE", measure("server-room",  TEMPERATURE,"2019-06-30T22:09:30Z", 26.0)),
           ("server-room-TEMPERATURE", measure("server-room",  TEMPERATURE,"2019-06-30T22:10:30Z",32.625)),
@@ -71,21 +65,9 @@ class MeasureDigestionJobTest extends AnyFlatSpec with Matchers with BeforeAndAf
           ("server-room-PRESSURE",    measure("server-room",  PRESSURE,   "2019-06-30T22:10:30Z",789.0)),
           ("server-room-TEMPERATURE", measure("server-room",  TEMPERATURE,"2019-06-30T22:12:30Z",42.0))
         )
-        println(s"Averages: \n${CollectSink.values.mkString("\n")}")
-    }
-
-    def measure(location: String, measureType: MeasureType, zuluTime: String, value: Double): Measure = {
-        val time = ZonedDateTime.parse(zuluTime, DateTimeFormatter.ISO_INSTANT.withZone(ZoneId.systemDefault()))
-        Measure.newBuilder()
-          .setLocation(location)
-          .setMeasureType(measureType)
-          .setTimestamp(time.toInstant)
-          .setValue(value)
-          .build()
     }
 }
 
-// create a testing sink
 class CollectSink extends SinkFunction[(String, Measure)] {
 
   override def invoke(value: (String, Measure)): Unit = {
@@ -96,6 +78,5 @@ class CollectSink extends SinkFunction[(String, Measure)] {
 }
 
 object CollectSink {
-  // must be static
   val values: ArrayBuffer[(String, Measure)] = ArrayBuffer()
 }
