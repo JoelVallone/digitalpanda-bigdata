@@ -4,11 +4,10 @@ import org.apache.flink.formats.avro.AvroDeserializationSchema
 import org.digitalpanda.avro.Measure
 import org.digitalpanda.avro.MeasureType.TEMPERATURE
 import org.digitalpanda.flink.test.TestHelper.measure
-import org.scalatest.BeforeAndAfter
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-class AvroKeyedSerializationSchemaTest extends AnyFlatSpec with Matchers with BeforeAndAfter {
+class AvroKeyedSerializationSchemaTest extends AnyFlatSpec with Matchers {
 
   "AvroKeyedSerializationSchema" should "serialize an Avro SpecificRecord" in {
     // Given

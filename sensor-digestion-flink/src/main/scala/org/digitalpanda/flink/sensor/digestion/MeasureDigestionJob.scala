@@ -27,6 +27,7 @@ object MeasureDigestionJob {
   private val jobConf = JobConf(); import jobConf._
   private val LOG: Logger = LoggerFactory.getLogger(MeasureDigestionJob.getClass)
 
+  //TODO: Test on real environment
   def main(args: Array[String]): Unit = {
 
     LOG.info(s"Job config: $config")
@@ -36,33 +37,38 @@ object MeasureDigestionJob {
       .enableCheckpointing(config.getLong("checkpoint.period-milli"), CheckpointingMode.EXACTLY_ONCE)
       .setStateBackend(new FsStateBackend(hdfsCheckpointPath(), true))
 
-    buildProcessing(env,
-              kafkaValueConsumer(config.getString("flink.stream.topic.input.raw-measure"), classOf[Measure]),
-              kafkaKeyedProducer(config.getString("flink.stream.topic.output.processed-measure"), classOf[Measure]))
-      .execute(jobName)
+    jobConf.forEach("flink.stream.average-digests"){
+      windowConf =>
+        windowAverage(env,
+          Time.seconds(windowConf.getLong("window-size-sec")),
+          kafkaValueConsumer(windowConf.getString("topic.input"), classOf[Measure]),
+          kafkaKeyedProducer(windowConf.getString("topic.output"), classOf[Measure]))}
+
+    env.execute(jobName)
   }
 
-  def buildProcessing(env: StreamExecutionEnvironment,
-                      rawRecordSource: SourceFunction[Measure],
-                      avgRecordSink: SinkFunction[(String, Measure)]): StreamExecutionEnvironment = {
+  def windowAverage(env: StreamExecutionEnvironment,
+                    windowSize: Time,
+                    metricInput: SourceFunction[Measure],
+                    avgOutput: SinkFunction[(String, Measure)]): StreamExecutionEnvironment = {
 
     // Topology setup
     env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)
     //  -> Sources
     val rawMeasureStream = env
-      .addSource(rawRecordSource)
+      .addSource(metricInput)
 
-    // -> Process //TODO: Parametrize average for multiple windows from config file
+    // -> Process
     val avgMeasureStream = rawMeasureStream
       // https://ci.apache.org/projects/flink/flink-docs-release-1.9/dev/stream/operators/windows.html#window-functions
       .assignTimestampsAndWatermarks(RawMeasureTimestampExtractor())
       .keyBy("location", "measureType")
-      .window(TumblingEventTimeWindows.of(Time.seconds(config.getLong("flink.stream.avg-window.size-sec"))))
+      .window(TumblingEventTimeWindows.of(windowSize))
       .aggregate(AverageAggregate[Measure](_.getValue), EmitAggregateMeasure())
 
     // -> Sink
     avgMeasureStream
-      .addSink(avgRecordSink)
+      .addSink(avgOutput)
     env
   }
 

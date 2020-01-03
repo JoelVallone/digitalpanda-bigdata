@@ -2,7 +2,7 @@ package org.digitalpanda.flink.common
 
 import java.util.Properties
 
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 
 object JobConf {
   def apply(confResource: String) : JobConf  = JobConf(Option(confResource))
@@ -11,7 +11,7 @@ object JobConf {
 
 case class JobConf(confResourceOpt: Option[String]) {
 
-  val config: com.typesafe.config.Config = confResourceOpt.map(path => ConfigFactory.load(path)).getOrElse(ConfigFactory.load())
+  val config: Config = confResourceOpt.map(path => ConfigFactory.load(path)).getOrElse(ConfigFactory.load())
 
   val KafkaGroupIdKey = "flink.stream.group.id"
   val CheckpointFolderKey = "flink.stream.checkpoint.base-folder"
@@ -39,5 +39,9 @@ case class JobConf(confResourceOpt: Option[String]) {
   def hdfsCheckpointPath() : String =
     generateConfig("base.hdfs.namenode.base-url") + generateConfig(CheckpointFolderKey)
 
+
+  def forEach(arrayKey: String)(action: Config => Unit) : Unit =
+    (0 until config.getInt(s"$arrayKey.size"))
+      .foreach( id =>  action(config.getConfig(s"$arrayKey.$id")))
 
 }

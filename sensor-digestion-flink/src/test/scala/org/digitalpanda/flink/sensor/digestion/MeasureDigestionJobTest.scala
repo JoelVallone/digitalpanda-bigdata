@@ -3,6 +3,7 @@ package org.digitalpanda.flink.sensor.digestion
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration
 import org.apache.flink.streaming.api.functions.sink.SinkFunction
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
+import org.apache.flink.streaming.api.windowing.time.Time
 import org.apache.flink.streaming.util.FiniteTestSource
 import org.apache.flink.test.util.MiniClusterWithClientResource
 import org.digitalpanda.avro.Measure
@@ -35,7 +36,7 @@ class MeasureDigestionJobTest extends AnyFlatSpec with Matchers with BeforeAndAf
         val env = StreamExecutionEnvironment.getExecutionEnvironment.enableCheckpointing
           env.setParallelism(2)
 
-        val rawMeasureSource = new FiniteTestSource(
+        val metricInput = new FiniteTestSource(
             measure("server-room",  TEMPERATURE, "2019-06-30T22:09:59Z", 26.0),
 
             measure("server-room",  TEMPERATURE, "2019-06-30T22:10:00Z", 35.5),
@@ -48,12 +49,12 @@ class MeasureDigestionJobTest extends AnyFlatSpec with Matchers with BeforeAndAf
             measure("server-room",  TEMPERATURE,  "2019-06-30T22:12:00Z", 30.0),
             measure("server-room",  TEMPERATURE,  "2019-06-30T22:12:59Z", 54.0)
         )
-        val avgMeasureSink = new CollectSink()
+        val avgOutput = new CollectSink()
         CollectSink.values.clear()
 
         // When
         MeasureDigestionJob
-          .buildProcessing(env, rawMeasureSource, avgMeasureSink)
+          .windowAverage(env, Time.seconds(60L), metricInput, avgOutput)
           .execute("MeasureDigestionJobUUT")
 
         // Then
