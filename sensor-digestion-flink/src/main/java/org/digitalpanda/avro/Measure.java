@@ -5,17 +5,15 @@
  */
 package org.digitalpanda.avro;
 
-import org.apache.avro.generic.GenericArray;
-import org.apache.avro.specific.SpecificData;
-import org.apache.avro.util.Utf8;
-import org.apache.avro.message.BinaryMessageEncoder;
 import org.apache.avro.message.BinaryMessageDecoder;
+import org.apache.avro.message.BinaryMessageEncoder;
 import org.apache.avro.message.SchemaStore;
+import org.apache.avro.specific.SpecificData;
 
 @org.apache.avro.specific.AvroGenerated
 public class Measure extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  private static final long serialVersionUID = 3856969948530370859L;
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Measure\",\"namespace\":\"org.digitalpanda.avro\",\"fields\":[{\"name\":\"location\",\"type\":\"string\"},{\"name\":\"measureType\",\"type\":{\"type\":\"enum\",\"name\":\"MeasureType\",\"symbols\":[\"TEMPERATURE\",\"HUMIDITY\",\"PRESSURE\"]}},{\"name\":\"timestamp\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-millis\"}},{\"name\":\"value\",\"type\":\"double\"}]}");
+  private static final long serialVersionUID = -410440954091346320L;
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"Measure\",\"namespace\":\"org.digitalpanda.avro\",\"fields\":[{\"name\":\"location\",\"type\":\"string\"},{\"name\":\"timeBlockId\",\"type\":\"long\"},{\"name\":\"measureType\",\"type\":{\"type\":\"enum\",\"name\":\"MeasureType\",\"symbols\":[\"TEMPERATURE\",\"HUMIDITY\",\"PRESSURE\"]}},{\"name\":\"bucket\",\"type\":[\"int\",\"null\"],\"default\":0},{\"name\":\"timestamp\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-millis\"}},{\"name\":\"value\",\"type\":\"double\"}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
 
   private static SpecificData MODEL$ = new SpecificData();
@@ -75,7 +73,9 @@ static {
   }
 
    private java.lang.CharSequence location;
+   private long timeBlockId;
    private org.digitalpanda.avro.MeasureType measureType;
+   private java.lang.Integer bucket;
    private java.time.Instant timestamp;
    private double value;
 
@@ -89,13 +89,17 @@ static {
   /**
    * All-args constructor.
    * @param location The new value for location
+   * @param timeBlockId The new value for timeBlockId
    * @param measureType The new value for measureType
+   * @param bucket The new value for bucket
    * @param timestamp The new value for timestamp
    * @param value The new value for value
    */
-  public Measure(java.lang.CharSequence location, org.digitalpanda.avro.MeasureType measureType, java.time.Instant timestamp, java.lang.Double value) {
+  public Measure(java.lang.CharSequence location, java.lang.Long timeBlockId, org.digitalpanda.avro.MeasureType measureType, java.lang.Integer bucket, java.time.Instant timestamp, java.lang.Double value) {
     this.location = location;
+    this.timeBlockId = timeBlockId;
     this.measureType = measureType;
+    this.bucket = bucket;
     this.timestamp = timestamp.truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
     this.value = value;
   }
@@ -106,15 +110,19 @@ static {
   public java.lang.Object get(int field$) {
     switch (field$) {
     case 0: return location;
-    case 1: return measureType;
-    case 2: return timestamp;
-    case 3: return value;
+    case 1: return timeBlockId;
+    case 2: return measureType;
+    case 3: return bucket;
+    case 4: return timestamp;
+    case 5: return value;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
 
   private static final org.apache.avro.Conversion<?>[] conversions =
       new org.apache.avro.Conversion<?>[] {
+      null,
+      null,
       null,
       null,
       new org.apache.avro.data.TimeConversions.TimestampMillisConversion(),
@@ -132,9 +140,11 @@ static {
   public void put(int field$, java.lang.Object value$) {
     switch (field$) {
     case 0: location = (java.lang.CharSequence)value$; break;
-    case 1: measureType = (org.digitalpanda.avro.MeasureType)value$; break;
-    case 2: timestamp = (java.time.Instant)value$; break;
-    case 3: value = (java.lang.Double)value$; break;
+    case 1: timeBlockId = (java.lang.Long)value$; break;
+    case 2: measureType = (org.digitalpanda.avro.MeasureType)value$; break;
+    case 3: bucket = (java.lang.Integer)value$; break;
+    case 4: timestamp = (java.time.Instant)value$; break;
+    case 5: value = (java.lang.Double)value$; break;
     default: throw new org.apache.avro.AvroRuntimeException("Bad index");
     }
   }
@@ -157,6 +167,23 @@ static {
   }
 
   /**
+   * Gets the value of the 'timeBlockId' field.
+   * @return The value of the 'timeBlockId' field.
+   */
+  public long getTimeBlockId() {
+    return timeBlockId;
+  }
+
+
+  /**
+   * Sets the value of the 'timeBlockId' field.
+   * @param value the value to set.
+   */
+  public void setTimeBlockId(long value) {
+    this.timeBlockId = value;
+  }
+
+  /**
    * Gets the value of the 'measureType' field.
    * @return The value of the 'measureType' field.
    */
@@ -171,6 +198,23 @@ static {
    */
   public void setMeasureType(org.digitalpanda.avro.MeasureType value) {
     this.measureType = value;
+  }
+
+  /**
+   * Gets the value of the 'bucket' field.
+   * @return The value of the 'bucket' field.
+   */
+  public java.lang.Integer getBucket() {
+    return bucket;
+  }
+
+
+  /**
+   * Sets the value of the 'bucket' field.
+   * @param value the value to set.
+   */
+  public void setBucket(java.lang.Integer value) {
+    this.bucket = value;
   }
 
   /**
@@ -248,7 +292,9 @@ static {
     implements org.apache.avro.data.RecordBuilder<Measure> {
 
     private java.lang.CharSequence location;
+    private long timeBlockId;
     private org.digitalpanda.avro.MeasureType measureType;
+    private java.lang.Integer bucket;
     private java.time.Instant timestamp;
     private double value;
 
@@ -267,17 +313,25 @@ static {
         this.location = data().deepCopy(fields()[0].schema(), other.location);
         fieldSetFlags()[0] = other.fieldSetFlags()[0];
       }
-      if (isValidValue(fields()[1], other.measureType)) {
-        this.measureType = data().deepCopy(fields()[1].schema(), other.measureType);
+      if (isValidValue(fields()[1], other.timeBlockId)) {
+        this.timeBlockId = data().deepCopy(fields()[1].schema(), other.timeBlockId);
         fieldSetFlags()[1] = other.fieldSetFlags()[1];
       }
-      if (isValidValue(fields()[2], other.timestamp)) {
-        this.timestamp = data().deepCopy(fields()[2].schema(), other.timestamp);
+      if (isValidValue(fields()[2], other.measureType)) {
+        this.measureType = data().deepCopy(fields()[2].schema(), other.measureType);
         fieldSetFlags()[2] = other.fieldSetFlags()[2];
       }
-      if (isValidValue(fields()[3], other.value)) {
-        this.value = data().deepCopy(fields()[3].schema(), other.value);
+      if (isValidValue(fields()[3], other.bucket)) {
+        this.bucket = data().deepCopy(fields()[3].schema(), other.bucket);
         fieldSetFlags()[3] = other.fieldSetFlags()[3];
+      }
+      if (isValidValue(fields()[4], other.timestamp)) {
+        this.timestamp = data().deepCopy(fields()[4].schema(), other.timestamp);
+        fieldSetFlags()[4] = other.fieldSetFlags()[4];
+      }
+      if (isValidValue(fields()[5], other.value)) {
+        this.value = data().deepCopy(fields()[5].schema(), other.value);
+        fieldSetFlags()[5] = other.fieldSetFlags()[5];
       }
     }
 
@@ -291,17 +345,25 @@ static {
         this.location = data().deepCopy(fields()[0].schema(), other.location);
         fieldSetFlags()[0] = true;
       }
-      if (isValidValue(fields()[1], other.measureType)) {
-        this.measureType = data().deepCopy(fields()[1].schema(), other.measureType);
+      if (isValidValue(fields()[1], other.timeBlockId)) {
+        this.timeBlockId = data().deepCopy(fields()[1].schema(), other.timeBlockId);
         fieldSetFlags()[1] = true;
       }
-      if (isValidValue(fields()[2], other.timestamp)) {
-        this.timestamp = data().deepCopy(fields()[2].schema(), other.timestamp);
+      if (isValidValue(fields()[2], other.measureType)) {
+        this.measureType = data().deepCopy(fields()[2].schema(), other.measureType);
         fieldSetFlags()[2] = true;
       }
-      if (isValidValue(fields()[3], other.value)) {
-        this.value = data().deepCopy(fields()[3].schema(), other.value);
+      if (isValidValue(fields()[3], other.bucket)) {
+        this.bucket = data().deepCopy(fields()[3].schema(), other.bucket);
         fieldSetFlags()[3] = true;
+      }
+      if (isValidValue(fields()[4], other.timestamp)) {
+        this.timestamp = data().deepCopy(fields()[4].schema(), other.timestamp);
+        fieldSetFlags()[4] = true;
+      }
+      if (isValidValue(fields()[5], other.value)) {
+        this.value = data().deepCopy(fields()[5].schema(), other.value);
+        fieldSetFlags()[5] = true;
       }
     }
 
@@ -346,6 +408,45 @@ static {
     }
 
     /**
+      * Gets the value of the 'timeBlockId' field.
+      * @return The value.
+      */
+    public long getTimeBlockId() {
+      return timeBlockId;
+    }
+
+
+    /**
+      * Sets the value of the 'timeBlockId' field.
+      * @param value The value of 'timeBlockId'.
+      * @return This builder.
+      */
+    public org.digitalpanda.avro.Measure.Builder setTimeBlockId(long value) {
+      validate(fields()[1], value);
+      this.timeBlockId = value;
+      fieldSetFlags()[1] = true;
+      return this;
+    }
+
+    /**
+      * Checks whether the 'timeBlockId' field has been set.
+      * @return True if the 'timeBlockId' field has been set, false otherwise.
+      */
+    public boolean hasTimeBlockId() {
+      return fieldSetFlags()[1];
+    }
+
+
+    /**
+      * Clears the value of the 'timeBlockId' field.
+      * @return This builder.
+      */
+    public org.digitalpanda.avro.Measure.Builder clearTimeBlockId() {
+      fieldSetFlags()[1] = false;
+      return this;
+    }
+
+    /**
       * Gets the value of the 'measureType' field.
       * @return The value.
       */
@@ -360,9 +461,9 @@ static {
       * @return This builder.
       */
     public org.digitalpanda.avro.Measure.Builder setMeasureType(org.digitalpanda.avro.MeasureType value) {
-      validate(fields()[1], value);
+      validate(fields()[2], value);
       this.measureType = value;
-      fieldSetFlags()[1] = true;
+      fieldSetFlags()[2] = true;
       return this;
     }
 
@@ -371,7 +472,7 @@ static {
       * @return True if the 'measureType' field has been set, false otherwise.
       */
     public boolean hasMeasureType() {
-      return fieldSetFlags()[1];
+      return fieldSetFlags()[2];
     }
 
 
@@ -381,7 +482,47 @@ static {
       */
     public org.digitalpanda.avro.Measure.Builder clearMeasureType() {
       measureType = null;
-      fieldSetFlags()[1] = false;
+      fieldSetFlags()[2] = false;
+      return this;
+    }
+
+    /**
+      * Gets the value of the 'bucket' field.
+      * @return The value.
+      */
+    public java.lang.Integer getBucket() {
+      return bucket;
+    }
+
+
+    /**
+      * Sets the value of the 'bucket' field.
+      * @param value The value of 'bucket'.
+      * @return This builder.
+      */
+    public org.digitalpanda.avro.Measure.Builder setBucket(java.lang.Integer value) {
+      validate(fields()[3], value);
+      this.bucket = value;
+      fieldSetFlags()[3] = true;
+      return this;
+    }
+
+    /**
+      * Checks whether the 'bucket' field has been set.
+      * @return True if the 'bucket' field has been set, false otherwise.
+      */
+    public boolean hasBucket() {
+      return fieldSetFlags()[3];
+    }
+
+
+    /**
+      * Clears the value of the 'bucket' field.
+      * @return This builder.
+      */
+    public org.digitalpanda.avro.Measure.Builder clearBucket() {
+      bucket = null;
+      fieldSetFlags()[3] = false;
       return this;
     }
 
@@ -400,9 +541,9 @@ static {
       * @return This builder.
       */
     public org.digitalpanda.avro.Measure.Builder setTimestamp(java.time.Instant value) {
-      validate(fields()[2], value);
+      validate(fields()[4], value);
       this.timestamp = value.truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
-      fieldSetFlags()[2] = true;
+      fieldSetFlags()[4] = true;
       return this;
     }
 
@@ -411,7 +552,7 @@ static {
       * @return True if the 'timestamp' field has been set, false otherwise.
       */
     public boolean hasTimestamp() {
-      return fieldSetFlags()[2];
+      return fieldSetFlags()[4];
     }
 
 
@@ -420,7 +561,7 @@ static {
       * @return This builder.
       */
     public org.digitalpanda.avro.Measure.Builder clearTimestamp() {
-      fieldSetFlags()[2] = false;
+      fieldSetFlags()[4] = false;
       return this;
     }
 
@@ -439,9 +580,9 @@ static {
       * @return This builder.
       */
     public org.digitalpanda.avro.Measure.Builder setValue(double value) {
-      validate(fields()[3], value);
+      validate(fields()[5], value);
       this.value = value;
-      fieldSetFlags()[3] = true;
+      fieldSetFlags()[5] = true;
       return this;
     }
 
@@ -450,7 +591,7 @@ static {
       * @return True if the 'value' field has been set, false otherwise.
       */
     public boolean hasValue() {
-      return fieldSetFlags()[3];
+      return fieldSetFlags()[5];
     }
 
 
@@ -459,7 +600,7 @@ static {
       * @return This builder.
       */
     public org.digitalpanda.avro.Measure.Builder clearValue() {
-      fieldSetFlags()[3] = false;
+      fieldSetFlags()[5] = false;
       return this;
     }
 
@@ -469,9 +610,11 @@ static {
       try {
         Measure record = new Measure();
         record.location = fieldSetFlags()[0] ? this.location : (java.lang.CharSequence) defaultValue(fields()[0]);
-        record.measureType = fieldSetFlags()[1] ? this.measureType : (org.digitalpanda.avro.MeasureType) defaultValue(fields()[1]);
-        record.timestamp = fieldSetFlags()[2] ? this.timestamp : (java.time.Instant) defaultValue(fields()[2]);
-        record.value = fieldSetFlags()[3] ? this.value : (java.lang.Double) defaultValue(fields()[3]);
+        record.timeBlockId = fieldSetFlags()[1] ? this.timeBlockId : (java.lang.Long) defaultValue(fields()[1]);
+        record.measureType = fieldSetFlags()[2] ? this.measureType : (org.digitalpanda.avro.MeasureType) defaultValue(fields()[2]);
+        record.bucket = fieldSetFlags()[3] ? this.bucket : (java.lang.Integer) defaultValue(fields()[3]);
+        record.timestamp = fieldSetFlags()[4] ? this.timestamp : (java.time.Instant) defaultValue(fields()[4]);
+        record.value = fieldSetFlags()[5] ? this.value : (java.lang.Double) defaultValue(fields()[5]);
         return record;
       } catch (org.apache.avro.AvroMissingFieldException e) {
         throw e;

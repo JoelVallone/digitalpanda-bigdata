@@ -9,10 +9,11 @@ import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindo
 import org.apache.flink.streaming.api.windowing.time.Time
 import org.apache.flink.streaming.api.{CheckpointingMode, TimeCharacteristic}
 import org.apache.flink.streaming.connectors.kafka.{FlinkKafkaConsumer, FlinkKafkaProducer}
-import org.digitalpanda.avro.Measure
 import org.digitalpanda.avro.util.AvroKeyedSerializationSchema
+import org.digitalpanda.avro.{Measure, RawMeasure}
+import org.digitalpanda.backend.data.history.{HistoricalDataStorageHelper, HistoricalDataStorageSizing}
 import org.digitalpanda.flink.common.JobConf
-import org.digitalpanda.flink.sensor.digestion.operators.{AverageAggregate, EmitAggregateMeasure, RawMeasureTimestampExtractor}
+import org.digitalpanda.flink.sensor.digestion.operators.{AverageAggregate, EmitAggregateMeasure, MeasureTimestampExtractor}
 import org.slf4j.{Logger, LoggerFactory}
 
 //https://stackoverflow.com/questions/37920023/could-not-find-implicit-value-for-evidence-parameter-of-type-org-apache-flink-ap
@@ -37,6 +38,7 @@ object MeasureDigestionJob {
       .enableCheckpointing(config.getLong("checkpoint.period-milli"), CheckpointingMode.EXACTLY_ONCE)
       .setStateBackend(new FsStateBackend(hdfsCheckpointPath(), true))
 
+    // Build processing topology
     jobConf.forEach("flink.stream.average-digests"){
       windowConf =>
         windowAverage(env,
@@ -47,6 +49,38 @@ object MeasureDigestionJob {
     env.execute(jobName)
   }
 
+  def rawMetricPreProcessor(env : StreamExecutionEnvironment,
+                            rawMetricInput : SourceFunction[RawMeasure],
+                            metricOuput : SinkFunction[(String, Measure)]): StreamExecutionEnvironment = {
+    // Topology setup
+    env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)
+    // -> Source
+    val rawMeasureStream = env
+      .addSource(rawMetricInput)
+
+    // -> Process
+    // TODO: Write test
+    val measureStream = rawMeasureStream.
+      map( raw => (
+        raw.getLocation + "-" + raw.getMeasureType,
+        Measure.newBuilder()
+          .setLocation(raw.getLocation)
+          .setMeasureType(raw.getMeasureType)
+          .setTimeBlockId(
+            HistoricalDataStorageHelper
+              .getHistoricalMeasureBlockId(
+                raw.getTimestamp.toEpochMilli,
+                HistoricalDataStorageSizing.SECOND_PRECISION_RAW))
+          .setTimestamp(raw.getTimestamp)
+          .setValue(raw.getValue)
+          .build()
+        ))
+
+    // -> Sink
+    measureStream.addSink(metricOuput)
+    env
+  }
+
   def windowAverage(env: StreamExecutionEnvironment,
                     windowSize: Time,
                     metricInput: SourceFunction[Measure],
@@ -54,14 +88,15 @@ object MeasureDigestionJob {
 
     // Topology setup
     env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)
-    //  -> Sources
-    val rawMeasureStream = env
+    //  -> Source
+    val highResolutionMeasureStream = env
       .addSource(metricInput)
 
     // -> Process
-    val avgMeasureStream = rawMeasureStream
+    // TODO: Update test
+    val avgMeasureStream = highResolutionMeasureStream
       // https://ci.apache.org/projects/flink/flink-docs-release-1.9/dev/stream/operators/windows.html#window-functions
-      .assignTimestampsAndWatermarks(RawMeasureTimestampExtractor())
+      .assignTimestampsAndWatermarks(MeasureTimestampExtractor())
       .keyBy("location", "measureType")
       .window(TumblingEventTimeWindows.of(windowSize))
       .aggregate(AverageAggregate[Measure](_.getValue), EmitAggregateMeasure())

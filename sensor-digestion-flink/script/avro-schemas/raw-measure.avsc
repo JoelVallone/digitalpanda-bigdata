@@ -1,12 +1,10 @@
 {
    "namespace": "org.digitalpanda.avro",
    "type": "record",
-   "name": "Measure",
+   "name": "RawMeasure",
    "fields": [
       {"name": "location", "type": "string"},
-      {"name": "timeBlockId", "type": "long"},
-      {"name": "measureType","type": "MeasureType"},
-      {"name": "bucket", "type": ["int", "null"], "default": 0 },
+      { "name": "measureType", "type": "MeasureType"},
       {"name": "timestamp", "type": {
         "type" : "long",
         "logicalType" : "timestamp-millis"
