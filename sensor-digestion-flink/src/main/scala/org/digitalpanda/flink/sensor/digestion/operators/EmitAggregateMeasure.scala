@@ -20,7 +20,6 @@ case class EmitAggregateMeasure() extends ProcessWindowFunction[Double, (String,
         .setLocation(key.getField(0))
         .setTimeBlockId(timeBlockIdFrom(context, sampleTimestamp))
         .setMeasureType(key.getField(1))
-        .setBucket(0)
         .setTimestamp(sampleTimestamp)
         .setValue(aggregate.iterator.next())
         .build()

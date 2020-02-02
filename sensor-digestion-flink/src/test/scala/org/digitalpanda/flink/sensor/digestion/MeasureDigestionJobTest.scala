@@ -40,14 +40,19 @@ class MeasureDigestionJobTest extends AnyFlatSpec with Matchers with BeforeAndAf
         val env = StreamExecutionEnvironment.getExecutionEnvironment.enableCheckpointing
         env.setParallelism(2)
 
-        val expected = measureSec("server-room",  TEMPERATURE, "2019-06-30T22:09:59Z", 26.0)
-        val rawInput = RawMeasure.newBuilder()
-          .setLocation(expected.getLocation)
-          .setMeasureType(expected.getMeasureType)
-          .setTimestamp(expected.getTimestamp)
-          .setValue(expected.getValue)
-          .build()
-        val rawMetricSource = new FiniteTestSource(rawInput)
+        val expectedSeq = Seq(
+            measureSec("server-room",  TEMPERATURE, "2019-06-30T22:09:59Z", 26.0),
+            measureSec("server-room",  PRESSURE,    "2019-06-30T22:10:20Z", 789.0)
+        )
+        val rawInput = expectedSeq
+          .map(expected =>
+              RawMeasure.newBuilder()
+                  .setLocation(expected.getLocation)
+                  .setMeasureType(expected.getMeasureType)
+                  .setTimestamp(expected.getTimestamp)
+                  .setValue(expected.getValue)
+                  .build())
+        val rawMetricSource = new FiniteTestSource(rawInput:_*)
         val metricSink = new CollectSink()
         CollectSink.values.clear()
 
@@ -58,15 +63,18 @@ class MeasureDigestionJobTest extends AnyFlatSpec with Matchers with BeforeAndAf
           .execute("MeasureDigestionJobUUT")
 
         // Then
-        println(s"Sinkable keyed output: \n${CollectSink.values.mkString("\n")}") //TODO: Fix output duplicate
-        CollectSink.values.toSet should contain (("server-room-TEMPERATURE", expected))
+        println(s"Sinkable keyed output: \n${CollectSink.values.mkString("\n")}")
+        CollectSink.values.toSet shouldEqual Set(
+          ("server-room-TEMPERATURE", measureSec("server-room",  TEMPERATURE, "2019-06-30T22:09:59Z", 26.0)),
+          ("server-room-PRESSURE", measureSec("server-room",  PRESSURE,    "2019-06-30T22:10:20Z", 789.0))
+        )
 
     }
 
     "windowAverage sub-topology" should "compute 60 seconds averages by <Location, MeasureType>" in {
         // Given
         val env = StreamExecutionEnvironment.getExecutionEnvironment.enableCheckpointing
-          env.setParallelism(2)
+        env.setParallelism(2)
 
         val rawMeasures = Seq(
             measureSec("server-room",  TEMPERATURE, "2019-06-30T22:09:59Z", 26.0),
@@ -93,7 +101,7 @@ class MeasureDigestionJobTest extends AnyFlatSpec with Matchers with BeforeAndAf
 
         // Then
         println(s"Output averages at minute frequency: \n${CollectSink.values.mkString("\n")}")
-        CollectSink.values.toSet should contain allOf (
+        CollectSink.values.toSet shouldEqual Set(
           ("server-room-TEMPERATURE", measureMin("server-room",  TEMPERATURE,"2019-06-30T22:09:30Z", 26.0)),
           ("server-room-TEMPERATURE", measureMin("server-room",  TEMPERATURE,"2019-06-30T22:10:30Z",32.625)),
           ("outdoor-TEMPERATURE",     measureMin("outdoor",      TEMPERATURE,"2019-06-30T22:10:30Z",5.0)),

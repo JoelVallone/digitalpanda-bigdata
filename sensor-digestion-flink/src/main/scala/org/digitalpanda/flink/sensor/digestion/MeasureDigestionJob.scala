@@ -51,7 +51,7 @@ object MeasureDigestionJob {
 
   def rawMetricPreProcessor(env : StreamExecutionEnvironment,
                             rawMetricInput : SourceFunction[RawMeasure],
-                            metricOuput : SinkFunction[(String, Measure)]): StreamExecutionEnvironment = {
+                            metricOutput : SinkFunction[(String, Measure)]): StreamExecutionEnvironment = {
     // Topology setup
     env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)
     // -> Source
@@ -59,7 +59,7 @@ object MeasureDigestionJob {
       .addSource(rawMetricInput)
 
     // -> Process
-    // TODO: Write test
+    //TODO: Verify if output is duplicated
     val measureStream = rawMeasureStream.
       map( raw => (
         raw.getLocation + "-" + raw.getMeasureType,
@@ -77,7 +77,7 @@ object MeasureDigestionJob {
         ))
 
     // -> Sink
-    measureStream.addSink(metricOuput)
+    measureStream.addSink(metricOutput)
     env
   }
 
@@ -93,7 +93,6 @@ object MeasureDigestionJob {
       .addSource(metricInput)
 
     // -> Process
-    // TODO: Update test
     val avgMeasureStream = highResolutionMeasureStream
       // https://ci.apache.org/projects/flink/flink-docs-release-1.9/dev/stream/operators/windows.html#window-functions
       .assignTimestampsAndWatermarks(MeasureTimestampExtractor())
